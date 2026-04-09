@@ -1,0 +1,7 @@
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.swp
+.env
+.envrc
+terraform-provider-pulp
