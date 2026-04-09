@@ -1,0 +1,327 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
+// internal/provider/resource_Distribution.go
+package provider
+
+import (
+	"context"
+	"fmt"
+
+	client "terraform-provider-pulp/internal/client"
+
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+)
+
+var _ resource.Resource = &pulpDistributionResource{}
+var _ resource.ResourceWithImportState = &pulpDistributionResource{}
+
+func NewPulpDistributionResource() resource.Resource {
+	return &pulpDistributionResource{}
+}
+
+type pulpDistributionResource struct {
+	client *client.PulpClient
+}
+
+type PulpDistributionModel struct {
+	PulpHref          types.String `tfsdk:"pulp_href"`
+	ContentType       types.String `tfsdk:"content_type"`
+	PluginName        types.String `tfsdk:"plugin_name"`
+	Name              types.String `tfsdk:"name"`
+	BasePath          types.String `tfsdk:"base_path"`
+	Repository        types.String `tfsdk:"repository"`
+	RepositoryVersion types.String `tfsdk:"repository_version"`
+	AllowUploads      types.Bool   `tfsdk:"allow_uploads"`
+	Remote            types.String `tfsdk:"remote"`
+	ContentGuard      types.String `tfsdk:"content_guard"`
+	Hidden            types.Bool   `tfsdk:"hidden"`
+	PulpLabels        types.Map    `tfsdk:"pulp_labels"`
+}
+
+func (r *pulpDistributionResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_distribution"
+}
+
+func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Manages a Pulp Distribution for any content type.",
+		Attributes: map[string]schema.Attribute{
+			"pulp_href": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "The Pulp href (used as the resource identifier).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"content_type": schema.StringAttribute{
+				Required:            true,
+				MarkdownDescription: "Content plugin type (e.g. `npm`, `python`).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"plugin_name": schema.StringAttribute{
+				Required:            true,
+				MarkdownDescription: "Plugin sub-type if different from content_type (e.g. `pypi` for python).",
+			},
+			"name": schema.StringAttribute{
+				Required:            true,
+				MarkdownDescription: "A unique name for this Distribution.",
+			},
+			"base_path": schema.StringAttribute{
+				Required:            true,
+				MarkdownDescription: "The base_path for this Distribution.",
+			},
+			"repository": schema.StringAttribute{
+				Optional:            true,
+				Computed:            true,
+				MarkdownDescription: "The name of the Repository that should be served at the base_path.",
+			},
+			"repository_version": schema.StringAttribute{
+				Optional:            true,
+				Computed:            true,
+				MarkdownDescription: "The version of the Repository.",
+			},
+			"allow_uploads": schema.BoolAttribute{
+				Optional:            true,
+				Computed:            true,
+				MarkdownDescription: "Whether to allow uploads to this Distribution.",
+			},
+			"remote": schema.StringAttribute{
+				Optional:            true,
+				Computed:            true,
+				MarkdownDescription: "The name of the Remote from which content should be pulled.",
+			},
+			"content_guard": schema.StringAttribute{
+				Optional:            true,
+				Computed:            true,
+				MarkdownDescription: "The name of the Content Guard. Supported only by `pypi`. Currently there is no way to define Content Guards using this provider",
+			},
+			"hidden": schema.BoolAttribute{
+				Optional:            true,
+				Computed:            true,
+				MarkdownDescription: "Whether this Distribution should be listed for users. Supported only by `pypi`. This is useful when it's deprecated but should be still usable.",
+			},
+			"pulp_labels": schema.MapAttribute{
+				Optional:            true,
+				Computed:            true,
+				ElementType:         types.StringType,
+				MarkdownDescription: "Key/value labels.",
+			},
+		},
+	}
+}
+
+func (r *pulpDistributionResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+	c, ok := req.ProviderData.(*client.PulpClient)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected provider data type",
+			fmt.Sprintf("Expected *client.PulpClient, got %T", req.ProviderData))
+		return
+	}
+	r.client = c
+}
+
+// Helper: build the body map from the plan, skipping null/unknown values
+func buildDistributionBody(ctx context.Context, plan PulpDistributionModel) map[string]any {
+	body := map[string]any{
+		"name":      plan.Name.ValueString(),
+		"base_path": plan.BasePath.ValueString(),
+	}
+
+	if !plan.Repository.IsNull() && !plan.Repository.IsUnknown() {
+		body["repository"] = plan.Repository.ValueString()
+	}
+	if !plan.RepositoryVersion.IsNull() && !plan.RepositoryVersion.IsUnknown() {
+		body["repository_version"] = plan.RepositoryVersion.ValueString()
+	}
+	if !plan.AllowUploads.IsNull() && !plan.AllowUploads.IsUnknown() {
+		body["allow_uploads"] = plan.AllowUploads.ValueBool()
+	}
+	if !plan.Remote.IsNull() && !plan.Remote.IsUnknown() {
+		body["remote"] = plan.Remote.ValueString()
+	}
+	if !plan.PulpLabels.IsNull() && !plan.PulpLabels.IsUnknown() {
+		labels := make(map[string]string)
+		plan.PulpLabels.ElementsAs(ctx, &labels, false)
+		body["pulp_labels"] = labels
+	}
+
+	// PyPI-only fields — only send them if set, Pulp will reject them for other types
+	isPyPI := plan.ContentType.ValueString() == "python" || plan.PluginName.ValueString() == "pypi"
+
+	if isPyPI {
+		if !plan.ContentGuard.IsNull() && !plan.ContentGuard.IsUnknown() {
+			body["content_guard"] = plan.ContentGuard.ValueString()
+		}
+		if !plan.Hidden.IsNull() && !plan.Hidden.IsUnknown() {
+			body["hidden"] = plan.Hidden.ValueBool()
+		}
+	}
+
+	return body
+}
+
+func (r *pulpDistributionResource) resourcePath(plan PulpDistributionModel) string {
+	return client.BuildResourcePath("distributions", plan.ContentType.ValueString(), plan.PluginName.ValueString())
+}
+
+// Hydrate the model from a Pulp API response map
+func hydrateDistributionModel(ctx context.Context, data map[string]any, model *PulpDistributionModel) {
+	tflog.Debug(ctx, "Hydrating distribution model", map[string]any{
+		"data": fmt.Sprintf("%+v", data),
+	})
+	if v, ok := data["pulp_href"].(string); ok {
+		model.PulpHref = types.StringValue(v)
+	}
+	if v, ok := data["name"].(string); ok {
+		model.Name = types.StringValue(v)
+	}
+	if v, ok := data["repository"].(string); ok && v != "" {
+		model.Repository = types.StringValue(v)
+	} else {
+		model.Repository = types.StringNull()
+	}
+	if v, ok := data["repository_version"].(string); ok && v != "" {
+		model.RepositoryVersion = types.StringValue(v)
+	} else {
+		model.RepositoryVersion = types.StringNull()
+	}
+
+	if v, ok := data["allow_uploads"].(bool); ok {
+		model.AllowUploads = types.BoolValue(v)
+	} else {
+		model.AllowUploads = types.BoolNull()
+	}
+
+	if v, ok := data["remote"].(string); ok && v != "" {
+		model.Remote = types.StringValue(v)
+	} else {
+		model.Remote = types.StringNull()
+	}
+
+	if v, ok := data["content_guard"].(string); ok && v != "" {
+		model.ContentGuard = types.StringValue(v)
+	} else {
+		model.ContentGuard = types.StringNull()
+	}
+
+	if v, ok := data["hidden"].(bool); ok {
+		model.Hidden = types.BoolValue(v)
+	} else {
+		model.Hidden = types.BoolNull()
+	}
+
+	// password is write-only in Pulp, never returned
+	if v, ok := data["pulp_labels"].(map[string]any); ok {
+		elems := make(map[string]types.String)
+		for k, val := range v {
+			if s, ok := val.(string); ok {
+				elems[k] = types.StringValue(s)
+			}
+		}
+		// Convert to types.Map
+		labels := make(map[string]string)
+		for k, val := range v {
+			if s, ok := val.(string); ok {
+				labels[k] = s
+			}
+		}
+		mapVal, _ := types.MapValueFrom(ctx, types.StringType, labels)
+		model.PulpLabels = mapVal
+	}
+}
+
+func (r *pulpDistributionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan PulpDistributionModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	body := buildDistributionBody(ctx, plan)
+	resPath := r.resourcePath(plan)
+
+	result, err := r.client.Create(ctx, resPath, body)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to create Distribution", err.Error())
+		return
+	}
+
+	hydrateDistributionModel(ctx, result, &plan)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *pulpDistributionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state PulpDistributionModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	result, err := r.client.ReadByHref(ctx, state.PulpHref.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to read Distribution", err.Error())
+		return
+	}
+	if result == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	hydrateDistributionModel(ctx, result, &state)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func (r *pulpDistributionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan PulpDistributionModel
+	var state PulpDistributionModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	body := buildDistributionBody(ctx, plan)
+
+	result, err := r.client.Update(ctx, state.PulpHref.ValueString(), body)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to update Distribution", err.Error())
+		return
+	}
+
+	// Preserve content_type and plugin_name from state (they force replace)
+	plan.ContentType = state.ContentType
+
+	hydrateDistributionModel(ctx, result, &plan)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *pulpDistributionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state PulpDistributionModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err := r.client.Delete(ctx, state.PulpHref.ValueString()); err != nil {
+		resp.Diagnostics.AddError("Failed to delete Distribution", err.Error())
+		return
+	}
+}
+
+func (r *pulpDistributionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Import by pulp_href, e.g.: terraform import pulp_Distribution.example /pulp/api/v3/Distributions/rpm/rpm/<uuid>/
+	resource.ImportStatePassthroughID(ctx, path.Root("pulp_href"), req, resp)
+}

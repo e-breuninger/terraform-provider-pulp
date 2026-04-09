@@ -1,0 +1,4 @@
+---
+extends: markdownlint/style/relaxed
+no-duplicate-heading:
+  siblings_only: true

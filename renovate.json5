@@ -1,0 +1,6 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'local>itops/oct/renovate/renovate-config:default.json5#v1.7.0',
+  ],
+}
