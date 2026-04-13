@@ -1,0 +1,30 @@
+---
+# Copyright (c) E. Breuninger GmbH & Co
+# SPDX-License-Identifier: MPL-2.0
+
+services:
+  pulp:
+    image: pulp/pulp
+    container_name: pulp
+    ports:
+      - "8080:80"
+    volumes:
+      - ./settings:/etc/pulp
+    devices:
+      - /dev/fuse:/dev/fuse
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/pulp/api/v3/status/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  reset-password:
+    image: docker:cli
+    depends_on:
+      pulp:
+        condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: docker exec pulp pulpcore-manager reset-admin-password --password admin
+    restart: "no"
