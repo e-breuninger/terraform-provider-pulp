@@ -1,3 +1,4 @@
+.PHONY: default
 default: fmt lint install generate
 
 build:
@@ -15,10 +16,20 @@ generate:
 fmt:
 	gofmt -s -w -e .
 
-test:
+docker:
+	cd docker && docker compose up -d
+
+dockerdown:
+	cd docker && docker compose down --volumes
+
+.PHONY: testenv
+testenv: dockerdown docker
+	sleep 5
+
+test: testenv
 	go test -v -cover -timeout=120s -parallel=10 ./...
 
-testacc:
+testacc: testenv
 	TF_ACC=1 go test -v -cover -timeout 120m ./...
 
-.PHONY: fmt lint test testacc build install generate
+.PHONY: fmt lint test testacc build install generate docker
