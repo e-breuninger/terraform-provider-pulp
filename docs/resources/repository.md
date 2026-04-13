@@ -18,12 +18,12 @@ Manages a Pulp Repository for any content type.
 ### Required
 
 - `content_type` (String) Content plugin type (e.g. `npm`, `python`).
+- `description` (String) A description for this Repository.
 - `name` (String) A unique name for this Repository.
 - `plugin_name` (String) Plugin sub-type if different from content_type (e.g. `apt` for deb). Defaults to content_type.
 
 ### Optional
 
-- `description` (String) A description for this Repository.
 - `pulp_labels` (Map of String) Key/value labels.
 - `remote` (String) `pulp_href` of the Remote.
 

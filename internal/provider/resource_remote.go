@@ -6,6 +6,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	client "github.com/e-breuninger/terraform-provider-pulp/internal/client"
 
@@ -272,6 +273,21 @@ func (r *pulpRemoteResource) Delete(ctx context.Context, req resource.DeleteRequ
 }
 
 func (r *pulpRemoteResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Import by pulp_href, e.g.: terraform import pulp_remote.example /pulp/api/v3/remotes/rpm/rpm/<uuid>/
-	resource.ImportStatePassthroughID(ctx, path.Root("pulp_href"), req, resp)
+	pulpHref := req.ID
+
+	// Example href: /pulp/api/v3/remotes/npm/npm/<uuid>/
+	// Parse content_type and plugin_name from the href
+	parts := strings.Split(strings.Trim(pulpHref, "/"), "/")
+	// parts: ["pulp", "api", "v3", "remotes", "<content_type>", "<plugin_name>", "<uuid>"]
+	if len(parts) < 7 {
+		resp.Diagnostics.AddError("Invalid pulp_href", "Could not parse content_type and plugin_name from pulp_href")
+		return
+	}
+
+	contentType := parts[4]
+	pluginName := parts[5]
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("pulp_href"), pulpHref)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("content_type"), contentType)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("plugin_name"), pluginName)...)
 }
