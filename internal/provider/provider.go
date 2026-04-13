@@ -37,9 +37,9 @@ type PulpProvider struct {
 
 // PulpProviderModel describes the provider data model.
 type PulpProviderModel struct {
-	Endpoint types.String `tfsdk:"endpoint"`
-	Username types.String `tfsdk:"username"`
-	Password types.String `tfsdk:"password"`
+	ServerUrl types.String `tfsdk:"server_url"`
+	Username  types.String `tfsdk:"username"`
+	Password  types.String `tfsdk:"password"`
 }
 
 func (p *PulpProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -50,9 +50,9 @@ func (p *PulpProvider) Metadata(ctx context.Context, req provider.MetadataReques
 func (p *PulpProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"endpoint": schema.StringAttribute{
+			"server_url": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "URI for Pulp API. May also be provided via PULP_ENDPOINT environment variable.",
+				MarkdownDescription: "URI for Pulp API. May also be provided via PULP_SERVER_URL environment variable.",
 			},
 			"username": schema.StringAttribute{
 				Required:            true,
@@ -76,17 +76,17 @@ func (p *PulpProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 		return
 	}
 
-	endpoint := os.Getenv("PULP_ENDPOINT")
+	server_url := os.Getenv("PULP_SERVER_URL")
 	username := os.Getenv("PULP_USERNAME")
 	password := os.Getenv("PULP_PASSWORD")
 
-	if !config.Endpoint.IsNull() {
-		endpoint = config.Endpoint.ValueString()
+	if !config.ServerUrl.IsNull() {
+		server_url = config.ServerUrl.ValueString()
 	}
 
-	parsedURL, urlParseError := urlx.Parse(endpoint)
+	parsedURL, urlParseError := urlx.Parse(server_url)
 	if urlParseError != nil {
-		resp.Diagnostics.AddAttributeError(path.Root("endpoint"), "No valid URL.", fmt.Sprintf("Error while trying to parse URL: %s", urlParseError))
+		resp.Diagnostics.AddAttributeError(path.Root("server_url"), "No valid URL.", fmt.Sprintf("Error while trying to parse URL: %s", urlParseError))
 		return
 	}
 
