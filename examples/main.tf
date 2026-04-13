@@ -9,9 +9,9 @@ terraform {
 }
 
 provider "pulp" {
-  endpoint = "http://localhost"
-  username = "admin"
-  password = "gHT9PVdsUZr223vHRKKaTJRigHQJEfF1"
+  server_url = "http://localhost:8080"
+  username   = "admin"
+  password   = "admin"
 }
 
 resource "pulp_remote" "npm" {

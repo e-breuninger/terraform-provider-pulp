@@ -16,6 +16,6 @@ description: |-
 
 ### Required
 
-- `endpoint` (String) URI for Pulp API. May also be provided via PULP_ENDPOINT environment variable.
 - `password` (String, Sensitive) Password for Pulp API. May also be provided via PULP_PASSWORD environment variable.
+- `server_url` (String) URI for Pulp API. May also be provided via PULP_SERVER_URL environment variable.
 - `username` (String) Username for Pulp API. May also be provided via PULP_USERNAME environment variable.
