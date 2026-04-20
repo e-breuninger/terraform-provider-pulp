@@ -41,11 +41,9 @@ func TestDistributionResource(t *testing.T) {
 			},
 			// ImportState testing
 			{
-				ResourceName:      "pulp_distribution.npm",
-				ImportState:       true,
-				ImportStateVerify: true,
-				// The last_updated attribute does not exist in the HashiCups
-				// API, therefore there is no value for it during import.
+				ResourceName:                         "pulp_distribution.npm",
+				ImportState:                          true,
+				ImportStateVerify:                    true,
 				ImportStateVerifyIgnore:              []string{"last_updated"},
 				ImportStateVerifyIdentifierAttribute: "pulp_href",
 				ImportStateIdFunc: func(state *terraform.State) (string, error) {
