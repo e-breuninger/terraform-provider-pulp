@@ -112,6 +112,7 @@ func (p *PulpProvider) Resources(ctx context.Context) []func() resource.Resource
 		NewPulpRemoteResource,
 		NewPulpRepositoryResource,
 		NewPulpDistributionResource,
+		NewPulpContentGuardResource,
 	}
 }
 
