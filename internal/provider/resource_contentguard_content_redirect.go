@@ -7,13 +7,12 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 
+	"github.com/e-breuninger/terraform-provider-pulp/internal"
 	client "github.com/e-breuninger/terraform-provider-pulp/internal/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -104,23 +103,6 @@ func (r *pulpContentGuardResource) Schema(_ context.Context, _ resource.SchemaRe
 				Required:            true,
 				MarkdownDescription: "A description for this ContentGuard.",
 			},
-			// "roles": schema.ListNestedAttribute{
-			// 	Required:            false,
-			// 	MarkdownDescription: "Roles that should be assigned to this ContentGuard.",
-			// 	NestedObject: schema.NestedAttributeObject{
-			// 		Attributes: map[string]schema.Attribute{
-			// 			"users": schema.ListAttribute{
-			// 				Required: false,
-			// 			},
-			// 			"groups": schema.ListAttribute{
-			// 				Required: false,
-			// 			},
-			// 			"role": schema.StringAttribute{
-			// 				Required: false,
-			// 			},
-			// 		},
-			// 	},
-			// },
 
 			// Contentguards: Header exclusive
 			"header_name": schema.StringAttribute{
@@ -459,21 +441,5 @@ func (r *pulpContentGuardResource) Delete(ctx context.Context, req resource.Dele
 }
 
 func (r *pulpContentGuardResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	pulpHref := req.ID
-
-	// Example href: /pulp/api/v3/contentguards/core/content_redirect/<uuid>/
-	// Parse content_type and plugin_name from the href
-	parts := strings.Split(strings.Trim(pulpHref, "/"), "/")
-	// parts: ["pulp", "api", "v3", "contentguards", "<content_type>", "<plugin_name>", "<uuid>"]
-	if len(parts) < 7 {
-		resp.Diagnostics.AddError("Invalid pulp_href", "Could not parse content_type and plugin_name from pulp_href")
-		return
-	}
-
-	contentType := parts[4]
-	pluginName := parts[5]
-
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("pulp_href"), pulpHref)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("content_type"), contentType)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("plugin_name"), pluginName)...)
+	internal.ImportState(ctx, req, resp)
 }
