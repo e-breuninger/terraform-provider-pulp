@@ -19,6 +19,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 var _ resource.Resource = &pulpContentGuardResource{}
@@ -99,7 +100,8 @@ func (r *pulpContentGuardResource) Schema(_ context.Context, _ resource.SchemaRe
 				MarkdownDescription: "A unique name for this ContentGuard.",
 			},
 			"description": schema.StringAttribute{
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
 				MarkdownDescription: "A description for this ContentGuard.",
 			},
 
@@ -192,8 +194,11 @@ func (r *pulpContentGuardResource) Configure(_ context.Context, req resource.Con
 // Helper: build the body map from the plan, skipping null/unknown values.
 func buildContentGuardBody(ctx context.Context, plan PulpContentGuardModel) map[string]any {
 	body := map[string]any{
-		"name":        plan.Name.ValueString(),
-		"description": plan.Description.ValueString(),
+		"name": plan.Name.ValueString(),
+	}
+
+	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
+		body["description"] = plan.Description.ValueString()
 	}
 
 	isCore := plan.ContentType.ValueString() == "core"
@@ -226,6 +231,9 @@ func (r *pulpContentGuardResource) resourcePath(plan PulpContentGuardModel) stri
 
 // Hydrate the model from a Pulp API response map.
 func hydrateContentGuardModel(ctx context.Context, data map[string]any, model *PulpContentGuardModel) {
+	tflog.Debug(ctx, "Hydrating distribution model", map[string]any{
+		"data": fmt.Sprintf("%+v", data),
+	})
 	if v, ok := data["pulp_href"].(string); ok {
 		model.PulpHref = types.StringValue(v)
 	}
@@ -234,6 +242,8 @@ func hydrateContentGuardModel(ctx context.Context, data map[string]any, model *P
 	}
 	if v, ok := data["description"].(string); ok {
 		model.Description = types.StringValue(v)
+	} else {
+		model.Description = types.StringNull()
 	}
 
 	// Contentguards: Header exclusive
@@ -381,6 +391,7 @@ func (r *pulpContentGuardResource) Create(ctx context.Context, req resource.Crea
 }
 
 func (r *pulpContentGuardResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+
 	var state PulpContentGuardModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
