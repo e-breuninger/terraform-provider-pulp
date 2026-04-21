@@ -38,7 +38,6 @@ type PulpContentGuardModel struct {
 	PluginName  types.String `tfsdk:"plugin_name"`
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
-	// Roles       types.List   `tfsdk:"roles"`
 
 	// Contentguards: X509 exclusive
 	CaCertificate types.String `tfsdk:"ca_certificate"`
@@ -139,13 +138,13 @@ func (r *pulpContentGuardResource) Schema(_ context.Context, _ resource.SchemaRe
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"username": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"pulp_href": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"prn": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 					},
 				},
@@ -158,16 +157,16 @@ func (r *pulpContentGuardResource) Schema(_ context.Context, _ resource.SchemaRe
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"name": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"pulp_href": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"prn": schema.StringAttribute{
-							Optional: true,
+							Computed: true,
 						},
 						"id": schema.NumberAttribute{
-							Optional: true,
+							Computed: true,
 						},
 					},
 				},
