@@ -18,13 +18,13 @@ Manages a Pulp ContentGuard for any content type.
 ### Required
 
 - `content_type` (String) Content plugin type. Either `certguard` or `core`.
-- `description` (String) A description for this ContentGuard.
 - `name` (String) A unique name for this ContentGuard.
 - `plugin_name` (String) Plugin sub-type. One of `rhsm`, `x509`, `composite`, `content_redirect`, `header` or `rbac`
 
 ### Optional
 
 - `ca_certificate` (String) `ca_certificate` for X509 or Rhsm. Supported only by Contentguards: X509 or Rhsm
+- `description` (String) A description for this ContentGuard.
 - `guards` (List of String) `guards` for Composite. Supported only by Contentguards: Composite.
 - `header_name` (String) `header_name` for Header. Supported only by Contentguards: Header.
 - `header_value` (String) `header_value` for Header. Supported only by Contentguards: Header.

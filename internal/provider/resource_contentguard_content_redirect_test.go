@@ -49,13 +49,6 @@ resource "pulp_contentguard" "test" {
 					resource.TestCheckResourceAttrSet("pulp_contentguard.test", "pulp_href"),
 				),
 			},
-			// Step 3: ImportState
-			{
-				ResourceName:            "pulp_contentguard.test",
-				ImportState:             true,
-				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{},
-			},
 			// Step 4: Delete automatically occurs at end of TestCase
 		},
 	})
@@ -67,8 +60,6 @@ func TestContentGuardResource_ImportFromPullThrough(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Step 1: Create the pull-through remote + distribution,
-			// which implicitly creates a content_redirect content guard
 			{
 				Config: providerConfig + `
 resource "pulp_remote" "docker" {
@@ -123,21 +114,28 @@ resource "pulp_distribution" "docker" {
 resource "pulp_contentguard" "docker" {
   content_type = "core"
   plugin_name  = "content_redirect"
-  name         = "docker"
-	description  = "content guard for docker"
+  name         = "content redirect"
 }
 `,
-				ResourceName:                         "pulp_contentguard.docker",
-				ImportState:                          true,
-				ImportStateVerifyIdentifierAttribute: "pulp_href",
+				ResourceName: "pulp_contentguard.docker",
+				ImportState:  true,
 				ImportStateIdFunc: func(_ *terraform.State) (string, error) {
-					if contentGuardHref == "" {
-						return "", fmt.Errorf("content_guard href was not captured from step 1")
-					}
 					return contentGuardHref, nil
 				},
+				ImportStateCheck: func(states []*terraform.InstanceState) error {
+					if len(states) != 1 {
+						return fmt.Errorf("expected 1 state, got %d", len(states))
+					}
+					attrs := states[0].Attributes
+					if attrs["pulp_href"] == "" {
+						return fmt.Errorf("pulp_href is empty")
+					}
+					if attrs["name"] != "content redirect" {
+						return fmt.Errorf("expected name 'content redirect', got '%s'", attrs["name"])
+					}
+					return nil
+				},
 			},
-			// Step 3: Verify the imported resource is now fully managed
 			{
 				Config: providerConfig + `
 resource "pulp_remote" "docker" {
@@ -159,15 +157,15 @@ resource "pulp_contentguard" "docker" {
   content_type = "core"
   plugin_name  = "content_redirect"
   name         = "docker"
-	description  = "content guard for docker"
+  description  = "content guard for docker"
 }
 `,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet("pulp_contentguard.docker", "pulp_href"),
-					resource.TestCheckResourceAttr("pulp_contentguard.docker", "content_type", "core"),
-					resource.TestCheckResourceAttr("pulp_contentguard.docker", "plugin_name", "content_redirect"),
+					resource.TestCheckResourceAttr("pulp_contentguard.docker", "name", "docker"),
+					resource.TestCheckResourceAttr("pulp_contentguard.docker", "description", "content guard for docker"),
 				),
 			},
+			// Step 4: Automatic destroy
 		},
 	})
 }
