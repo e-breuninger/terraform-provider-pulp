@@ -39,7 +39,7 @@ Manages a Pulp ContentGuard for any content type.
 <a id="nestedatt--groups"></a>
 ### Nested Schema for `groups`
 
-Optional:
+Read-Only:
 
 - `id` (Number)
 - `name` (String)
@@ -50,7 +50,7 @@ Optional:
 <a id="nestedatt--users"></a>
 ### Nested Schema for `users`
 
-Optional:
+Read-Only:
 
 - `prn` (String)
 - `pulp_href` (String)
