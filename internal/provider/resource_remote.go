@@ -10,6 +10,7 @@ import (
 	"github.com/e-breuninger/terraform-provider-pulp/internal"
 	client "github.com/e-breuninger/terraform-provider-pulp/internal/client"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -272,5 +273,11 @@ func (r *pulpRemoteResource) Delete(ctx context.Context, req resource.DeleteRequ
 }
 
 func (r *pulpRemoteResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	internal.ImportState(ctx, req, resp)
+	parts := internal.ImportState(ctx, req, resp)
+
+	contentType := parts[4]
+	pluginName := parts[5]
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("content_type"), contentType)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("plugin_name"), pluginName)...)
 }
