@@ -7,15 +7,18 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"regexp"
 
 	"github.com/e-breuninger/terraform-provider-pulp/internal"
 	"github.com/e-breuninger/terraform-provider-pulp/internal/client"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/numberplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -67,7 +70,11 @@ func (r *pulpUserResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			},
 			"username": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "A unique username for this User. 150 characters or fewer. Letters, digits and @/./+/-/_ only.",
+				MarkdownDescription: "A unique username for this User. 150 characters or fewer. Letters, digits and `@.+-_` only.",
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(regexp.MustCompile(`^[A-Za-z0-9@.+_-]{1,150}$`),
+						"must be 150 characters or fewer and contain only letters, digits, and @.+-_"),
+				},
 			},
 			"password": schema.StringAttribute{
 				Optional:            true,
@@ -119,9 +126,12 @@ func (r *pulpUserResource) Configure(_ context.Context, req resource.ConfigureRe
 func buildUserBody(_ context.Context, plan PulpUserModel) map[string]any {
 	body := map[string]any{
 		"username": plan.Username.ValueString(),
-		"password": plan.Password.ValueString(),
+		"password": nil,
 	}
 
+	if !plan.Password.IsNull() && !plan.Password.IsUnknown() {
+		body["password"] = plan.Password.ValueString()
+	}
 	if !plan.FirstName.IsNull() && !plan.FirstName.IsUnknown() {
 		body["first_name"] = plan.FirstName.ValueString()
 	}
