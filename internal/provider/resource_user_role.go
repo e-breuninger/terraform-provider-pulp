@@ -197,7 +197,7 @@ func (r *pulpUserRoleResource) Read(ctx context.Context, req resource.ReadReques
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-// Update patches the UserRole by Deleting and Re-creating the UserRole
+// Update patches the UserRole by Deleting and Re-creating the UserRole.
 func (r *pulpUserRoleResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var plan PulpUserRoleModel
 	var state PulpUserRoleModel
