@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 func ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) []string {
@@ -25,4 +26,20 @@ func ImportState(ctx context.Context, req resource.ImportStateRequest, resp *res
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("pulp_href"), req.ID)...)
 	return parts
+}
+
+func StringList(ctx context.Context, data map[string]any, key string) *types.List {
+	if v, ok := data[key].([]any); ok {
+		guardElems := make([]types.String, 0, len(v))
+		for _, g := range v {
+			if s, ok := g.(string); ok {
+				guardElems = append(guardElems, types.StringValue(s))
+			}
+		}
+		list, diags := types.ListValueFrom(ctx, types.StringType, guardElems)
+		if !diags.HasError() {
+			return &list
+		}
+	}
+	return nil
 }
