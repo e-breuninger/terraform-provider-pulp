@@ -1,6 +1,6 @@
 module github.com/e-breuninger/terraform-provider-pulp
 
-go 1.25.0
+go 1.25.8
 
 require (
 	github.com/goware/urlx v0.3.2
