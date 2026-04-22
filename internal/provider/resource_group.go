@@ -71,7 +71,7 @@ func (r *pulpGroupResource) Configure(_ context.Context, req resource.ConfigureR
 }
 
 // Helper: build the body map from the plan, skipping null/unknown values.
-func buildGroupBody(ctx context.Context, plan PulpGroupModel) map[string]any {
+func buildGroupBody(_ context.Context, plan PulpGroupModel) map[string]any {
 	body := map[string]any{
 		"name": plan.Name.ValueString(),
 	}
