@@ -10,11 +10,13 @@ import (
 	"github.com/e-breuninger/terraform-provider-pulp/internal"
 	client "github.com/e-breuninger/terraform-provider-pulp/internal/client"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -56,11 +58,46 @@ func (r *pulpRepositoryResource) Schema(_ context.Context, _ resource.SchemaRequ
 			},
 			"content_type": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "Content plugin type (e.g. `npm`, `python`).",
+				MarkdownDescription: "Content plugin type.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						"ansible",
+						"container",
+						"core",
+						"deb",
+						"file",
+						"hugging_face",
+						"maven",
+						"npm",
+						"ostree",
+						"python",
+						"rpm",
+					),
+				},
 			},
 			"plugin_name": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "Plugin sub-type if different from content_type (e.g. `apt` for deb). Defaults to content_type.",
+				MarkdownDescription: "Plugin sub-type if different from content_type.",
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						"ansible",
+						"container",
+						"pull-through",
+						"artifacts",
+						"openpgp",
+						"apt",
+						"file",
+						"hugging-face",
+						"maven",
+						"npm",
+						"ostree",
+						"pypi",
+						"rpm",
+					),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:            true,

@@ -10,11 +10,13 @@ import (
 	"github.com/e-breuninger/terraform-provider-pulp/internal"
 	client "github.com/e-breuninger/terraform-provider-pulp/internal/client"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -41,7 +43,6 @@ type PulpDistributionModel struct {
 	AllowUploads      types.Bool   `tfsdk:"allow_uploads"`
 	Remote            types.String `tfsdk:"remote"`
 	ContentGuard      types.String `tfsdk:"content_guard"`
-	Hidden            types.Bool   `tfsdk:"hidden"`
 	PulpLabels        types.Map    `tfsdk:"pulp_labels"`
 }
 
@@ -62,14 +63,46 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 			},
 			"content_type": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "Content plugin type (e.g. `npm`, `python`).",
+				MarkdownDescription: "Content plugin type.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						"ansible",
+						"container",
+						"core",
+						"deb",
+						"file",
+						"hugging_face",
+						"maven",
+						"npm",
+						"ostree",
+						"python",
+						"rpm",
+					),
 				},
 			},
 			"plugin_name": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "Plugin sub-type if different from content_type (e.g. `pypi` for python).",
+				MarkdownDescription: "Plugin sub-type if different from content_type.",
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						"ansible",
+						"container",
+						"pull-through",
+						"artifacts",
+						"openpgp",
+						"apt",
+						"file",
+						"hugging-face",
+						"maven",
+						"npm",
+						"ostree",
+						"pypi",
+						"rpm",
+					),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:            true,
@@ -104,11 +137,6 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 				Computed:            true,
 				MarkdownDescription: "The name of the Content Guard. Supported only by `pypi`. Currently there is no way to define Content Guards using this provider",
 			},
-			"hidden": schema.BoolAttribute{
-				Optional:            true,
-				Computed:            true,
-				MarkdownDescription: "Whether this Distribution should be listed for users. Supported only by `pypi`. This is useful when it's deprecated but should be still usable.",
-			},
 			"pulp_labels": schema.MapAttribute{
 				Optional:            true,
 				Computed:            true,
@@ -130,6 +158,24 @@ func (r *pulpDistributionResource) Configure(_ context.Context, req resource.Con
 		return
 	}
 	r.client = c
+}
+
+// Distribution (content_type, plugin_name) pairs that accept content_guard.
+var distributionSupportsContentGuard = map[string]map[string]bool{
+	"file":      {"file": true},
+	"python":    {"pypi": true},
+	"container": {"container": true, "pull-through": true},
+	"rpm":       {"rpm": true},
+	"deb":       {"apt": true},
+	"ansible":   {"ansible": true},
+	"maven":     {"maven": true},
+	"ostree":    {"ostree": true},
+	"core":      {"artifacts": true, "openpgp": true},
+	// Intentionally excluded: npm, hugging_face (add when verified).
+}
+
+func supportsContentGuard(contentType, pluginName string) bool {
+	return distributionSupportsContentGuard[contentType][pluginName]
 }
 
 // Helper: build the body map from the plan, skipping null/unknown values.
@@ -157,15 +203,10 @@ func buildDistributionBody(ctx context.Context, plan PulpDistributionModel) map[
 		body["pulp_labels"] = labels
 	}
 
-	// PyPI-only fields — only send them if set, Pulp will reject them for other types
-	isPyPI := plan.ContentType.ValueString() == "python" || plan.PluginName.ValueString() == "pypi"
-
-	if isPyPI {
+	// Not every distribution has a content guard
+	if supportsContentGuard(plan.ContentType.ValueString(), plan.PluginName.ValueString()) {
 		if !plan.ContentGuard.IsNull() && !plan.ContentGuard.IsUnknown() {
 			body["content_guard"] = plan.ContentGuard.ValueString()
-		}
-		if !plan.Hidden.IsNull() && !plan.Hidden.IsUnknown() {
-			body["hidden"] = plan.Hidden.ValueBool()
 		}
 	}
 
@@ -217,12 +258,6 @@ func hydrateDistributionModel(ctx context.Context, data map[string]any, model *P
 		model.ContentGuard = types.StringValue(v)
 	} else {
 		model.ContentGuard = types.StringNull()
-	}
-
-	if v, ok := data["hidden"].(bool); ok {
-		model.Hidden = types.BoolValue(v)
-	} else {
-		model.Hidden = types.BoolNull()
 	}
 
 	// password is write-only in Pulp, never returned
