@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -171,6 +172,23 @@ func (c *PulpClient) Delete(ctx context.Context, pulpHref string) error {
 		return fmt.Errorf("delete failed with status %d: %v", statusCode, result)
 	}
 	return nil
+}
+
+// CallHrefAction POSTs a body to {href}{action}/ (e.g. add_role/, remove_role/)
+// href is the full pulp_href like "/pulp/api/v3/contentguards/core/rbac/<uuid>/".
+func (c *PulpClient) CallHrefAction(ctx context.Context, href, action string, body map[string]any) (map[string]any, error) {
+	resourcePath := strings.TrimRight(href, "/") + "/" + strings.Trim(action, "/") + "/"
+	url := fmt.Sprintf("%s%s", c.BaseURL, resourcePath)
+	result, _, err := c.doRequest(ctx, http.MethodPost, url, body)
+	return result, err
+}
+
+// ListHrefAction GETs {href}{action}/ and returns the decoded body.
+func (c *PulpClient) ListHrefAction(ctx context.Context, href, action string) (map[string]any, error) {
+	resourcePath := strings.TrimRight(href, "/") + "/" + strings.Trim(action, "/") + "/"
+	url := fmt.Sprintf("%s%s", c.BaseURL, resourcePath)
+	result, _, err := c.doRequest(ctx, http.MethodGet, url, nil)
+	return result, err
 }
 
 func (c *PulpClient) WaitForTask(ctx context.Context, taskHref string) error {
