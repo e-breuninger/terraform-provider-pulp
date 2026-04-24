@@ -17,9 +17,9 @@ Manages a Pulp remote for any content type.
 
 ### Required
 
-- `content_type` (String) Content plugin type (e.g. `rpm`, `deb`, `file`, `npm`, `container`).
+- `content_type` (String) Content plugin type.
 - `name` (String) A unique name for this remote.
-- `plugin_name` (String) Plugin sub-type if different from content_type (e.g. `apt` for deb). Defaults to content_type.
+- `plugin_name` (String) Plugin sub-type if different from content_type.
 - `url` (String) The URL of an external content source.
 
 ### Optional

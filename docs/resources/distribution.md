@@ -18,15 +18,14 @@ Manages a Pulp Distribution for any content type.
 ### Required
 
 - `base_path` (String) The base_path for this Distribution.
-- `content_type` (String) Content plugin type (e.g. `npm`, `python`).
+- `content_type` (String) Content plugin type.
 - `name` (String) A unique name for this Distribution.
-- `plugin_name` (String) Plugin sub-type if different from content_type (e.g. `pypi` for python).
+- `plugin_name` (String) Plugin sub-type if different from content_type.
 
 ### Optional
 
 - `allow_uploads` (Boolean) Whether to allow uploads to this Distribution.
 - `content_guard` (String) The name of the Content Guard. Supported only by `pypi`. Currently there is no way to define Content Guards using this provider
-- `hidden` (Boolean) Whether this Distribution should be listed for users. Supported only by `pypi`. This is useful when it's deprecated but should be still usable.
 - `pulp_labels` (Map of String) Key/value labels.
 - `remote` (String) The name of the Remote from which content should be pulled.
 - `repository` (String) The name of the Repository that should be served at the base_path.
