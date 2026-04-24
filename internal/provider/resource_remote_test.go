@@ -7,27 +7,31 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/e-breuninger/terraform-provider-pulp/internal"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestRemoteResource(t *testing.T) {
+	suffix := internal.RandomSuffix()
+	remoteName1 := fmt.Sprintf("tf-acc-remote-%s", suffix)
+	remoteName2 := fmt.Sprintf("tf-acc-remote-%s", suffix)
+
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: providerConfig + `
+				Config: providerConfig + fmt.Sprintf(`
 resource "pulp_remote" "npm" {
   content_type = "npm"
   plugin_name  = "npm"
   url          = "https://registry.npmjs.org/"
-  name         = "bar"
-}
-`,
+  name         = %[1]q
+}`, remoteName1),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("pulp_remote.npm", "url", "https://registry.npmjs.org/"),
-					resource.TestCheckResourceAttr("pulp_remote.npm", "name", "bar"),
+					resource.TestCheckResourceAttr("pulp_remote.npm", "name", remoteName1),
 					resource.TestCheckResourceAttrSet("pulp_remote.npm", "pulp_href"),
 				),
 			},
@@ -48,17 +52,16 @@ resource "pulp_remote" "npm" {
 			},
 			// Update and Read testing
 			{
-				Config: providerConfig + `
+				Config: providerConfig + fmt.Sprintf(`
 resource "pulp_remote" "npm" {
   content_type = "npm"
   plugin_name  = "npm"
   url          = "https://registry.npmjs.org"
-  name         = "foo"
-}
-`,
+  name         = %[1]q
+}`, remoteName2),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("pulp_remote.npm", "url", "https://registry.npmjs.org"),
-					resource.TestCheckResourceAttr("pulp_remote.npm", "name", "foo"),
+					resource.TestCheckResourceAttr("pulp_remote.npm", "name", remoteName2),
 					resource.TestCheckResourceAttrSet("pulp_remote.npm", "pulp_href"),
 				),
 			},
