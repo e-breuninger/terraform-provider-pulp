@@ -194,7 +194,7 @@ func (r *pulpObjectRoleResource) removeRole(
 	if err != nil {
 		return err
 	}
-	if statusCode != http.StatusOK {
+	if statusCode != http.StatusCreated {
 		return fmt.Errorf("remove_role failed with status %d", statusCode)
 	}
 	return nil
