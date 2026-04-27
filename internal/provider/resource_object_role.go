@@ -6,9 +6,10 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
-	"github.com/e-breuninger/terraform-provider-pulp/internal"
+	internal "github.com/e-breuninger/terraform-provider-pulp/internal"
 	"github.com/e-breuninger/terraform-provider-pulp/internal/client"
 	"github.com/e-breuninger/terraform-provider-pulp/internal/modifiers"
 
@@ -106,9 +107,12 @@ func (r *pulpObjectRoleResource) Configure(_ context.Context, req resource.Confi
 func (r *pulpObjectRoleResource) readRoleAssignment(
 	ctx context.Context, pulpHref, role string,
 ) (users, groups []string, found bool, err error) {
-	result, err := r.client.ListHrefAction(ctx, pulpHref, "list_roles")
+	result, statusCode, err := r.client.ListHrefAction(ctx, pulpHref, "list_roles")
 	if err != nil {
 		return nil, nil, false, err
+	}
+	if statusCode != http.StatusOK {
+		return nil, nil, false, fmt.Errorf("list_roles failed with status %d", statusCode)
 	}
 	rolesRaw, ok := result["roles"].([]any)
 	if !ok {
@@ -160,9 +164,12 @@ func (r *pulpObjectRoleResource) addRole(
 	if groups == nil {
 		body["groups"] = []string{}
 	}
-	tflog.Debug(ctx, "Adding object role", map[string]any{"href": pulpHref, "body": body})
-	_, err := r.client.CallHrefAction(ctx, pulpHref, "add_role", body)
-	return err
+	tflog.Error(ctx, "Adding object role", map[string]any{"href": pulpHref, "body": body})
+	resp, statusCode, err := r.client.CallHrefAction(ctx, pulpHref, "add_role", body)
+	if (statusCode != http.StatusOK && statusCode != http.StatusCreated) || err != nil {
+		return fmt.Errorf("add_role failed with status %d\nbody: %v\nerror: %v\nresponse: %v", statusCode, body, err, resp)
+	}
+	return nil
 }
 
 func (r *pulpObjectRoleResource) removeRole(
@@ -182,9 +189,15 @@ func (r *pulpObjectRoleResource) removeRole(
 	if groups == nil {
 		body["groups"] = []string{}
 	}
-	tflog.Debug(ctx, "Removing object role", map[string]any{"href": pulpHref, "body": body})
-	_, err := r.client.CallHrefAction(ctx, pulpHref, "remove_role", body)
-	return err
+	tflog.Error(ctx, "Removing object role", map[string]any{"href": pulpHref, "body": body})
+	_, statusCode, err := r.client.CallHrefAction(ctx, pulpHref, "remove_role", body)
+	if err != nil {
+		return err
+	}
+	if statusCode != http.StatusOK {
+		return fmt.Errorf("remove_role failed with status %d", statusCode)
+	}
+	return nil
 }
 
 func (r *pulpObjectRoleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
