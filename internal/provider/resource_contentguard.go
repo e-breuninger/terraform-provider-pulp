@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/e-breuninger/terraform-provider-pulp/internal"
+	internal "github.com/e-breuninger/terraform-provider-pulp/internal"
 	client "github.com/e-breuninger/terraform-provider-pulp/internal/client"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
