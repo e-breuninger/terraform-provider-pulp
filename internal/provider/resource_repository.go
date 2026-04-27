@@ -9,6 +9,7 @@ import (
 
 	"github.com/e-breuninger/terraform-provider-pulp/internal"
 	client "github.com/e-breuninger/terraform-provider-pulp/internal/client"
+	validators "github.com/e-breuninger/terraform-provider-pulp/internal/validators"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -110,6 +111,9 @@ func (r *pulpRepositoryResource) Schema(_ context.Context, _ resource.SchemaRequ
 			"remote": schema.StringAttribute{
 				Optional:            true,
 				MarkdownDescription: "`pulp_href` of the Remote.",
+				Validators: []validator.String{
+					validators.PulpHrefValidator(),
+				},
 			},
 			"pulp_labels": schema.MapAttribute{
 				Optional:            true,
