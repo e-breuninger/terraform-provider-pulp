@@ -52,16 +52,16 @@ func (p *PulpProvider) Schema(ctx context.Context, req provider.SchemaRequest, r
 		Attributes: map[string]schema.Attribute{
 			"server_url": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "URI for Pulp API. May also be provided via PULP_SERVER_URL environment variable.",
+				MarkdownDescription: "URI for Pulp API. May also be provided via `PULP_SERVER_URL` environment variable.",
 			},
 			"username": schema.StringAttribute{
 				Required:            true,
-				MarkdownDescription: "Username for Pulp API. May also be provided via PULP_USERNAME environment variable.",
+				MarkdownDescription: "Username for Pulp API. May also be provided via `PULP_USERNAME` environment variable.",
 			},
 			"password": schema.StringAttribute{
 				Required:            true,
 				Sensitive:           true,
-				MarkdownDescription: "Password for Pulp API. May also be provided via PULP_PASSWORD environment variable.",
+				MarkdownDescription: "Password for Pulp API. May also be provided via `PULP_PASSWORD` environment variable.",
 			},
 		},
 	}

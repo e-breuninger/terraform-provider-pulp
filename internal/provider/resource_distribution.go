@@ -139,6 +139,7 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 			"content_guard": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
+				MarkdownDescription: "The `pulp_href` of the Content Guard to use for this Distribution (if supported by the content_type/plugin_name).",
 				Validators: []validator.String{
 					validators.PulpHrefValidator(),
 				},
@@ -177,7 +178,6 @@ var distributionSupportsContentGuard = map[string]map[string]bool{
 	"maven":     {"maven": true},
 	"ostree":    {"ostree": true},
 	"core":      {"artifacts": true, "openpgp": true},
-	// Intentionally excluded: npm, hugging_face (add when verified).
 }
 
 func supportsContentGuard(contentType, pluginName string) bool {
