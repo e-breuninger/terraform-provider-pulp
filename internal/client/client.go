@@ -168,7 +168,11 @@ func (c *PulpClient) Delete(ctx context.Context, pulpHref string) error {
 		}
 	}
 
-	if statusCode != http.StatusNoContent && statusCode != http.StatusNotFound {
+	if statusCode == http.StatusNotFound {
+		return nil
+	}
+
+	if statusCode != http.StatusNoContent {
 		return fmt.Errorf("delete failed with status %d: %v", statusCode, result)
 	}
 	return nil
