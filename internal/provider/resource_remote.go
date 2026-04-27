@@ -114,6 +114,13 @@ func (r *pulpRemoteResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "Download policy: `immediate`, `on_demand`, or `streamed`.",
+				Validators: []validator.String{
+					stringvalidator.OneOf(
+						"immediate",
+						"on_demand",
+						"streamed",
+					),
+				},
 			},
 			"tls_validation": schema.BoolAttribute{
 				Optional:            true,

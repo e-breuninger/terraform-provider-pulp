@@ -7,8 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/e-breuninger/terraform-provider-pulp/internal"
+	internal "github.com/e-breuninger/terraform-provider-pulp/internal"
 	client "github.com/e-breuninger/terraform-provider-pulp/internal/client"
+	validators "github.com/e-breuninger/terraform-provider-pulp/internal/validators"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -131,11 +132,16 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "The name of the Remote from which content should be pulled.",
+				Validators: []validator.String{
+					validators.PulpHrefValidator(),
+				},
 			},
 			"content_guard": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
-				MarkdownDescription: "The name of the Content Guard. Supported only by `pypi`. Currently there is no way to define Content Guards using this provider",
+				Validators: []validator.String{
+					validators.PulpHrefValidator(),
+				},
 			},
 			"pulp_labels": schema.MapAttribute{
 				Optional:            true,
