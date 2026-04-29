@@ -112,7 +112,7 @@ func (c *PulpClient) Create(ctx context.Context, resourcePath string, body map[s
 	}
 
 	if statusCode != http.StatusCreated && statusCode != http.StatusOK {
-		return nil, fmt.Errorf("create failed with status %d: %v", statusCode, result)
+		return nil, fmt.Errorf("create failed with status %d: %v\n%v", statusCode, result, body)
 	}
 
 	return result, nil

@@ -211,7 +211,8 @@ func hydrateRemoteModel(ctx context.Context, data map[string]any, model *PulpRem
 	if v, ok := data["username"].(string); ok && v != "" {
 		model.Username = types.StringValue(v)
 	}
-	// password is write-only in Pulp, never returned
+
+	// Convert pulp_labels from map[string]any to types.Map
 	if v, ok := data["pulp_labels"].(map[string]any); ok {
 		elems := make(map[string]types.String)
 		for k, val := range v {
