@@ -45,10 +45,10 @@ resource "pulp_user_role" "breuninger_filerepository" {
 
 ### Optional
 
-- `content_object` (String) The href of the object this role applies to.
+- `content_object` (String) The href of the object this Role applies to.
 - `content_object_prn` (String) The PRN of the content object for which role permissions should be asserted. If set to 'null', permissions will act on either domain or model-level.
-- `domain` (String) Domain this role should be applied on, mutually exclusive with content_object.
+- `domain` (String) Domain this Role should be applied on, mutually exclusive with content_object.
 
 ### Read-Only
 
-- `pulp_href` (String) The Pulp href (used as the resource identifier).
+- `pulp_href` (String) The `pulp_href` (used as the resource identifier).

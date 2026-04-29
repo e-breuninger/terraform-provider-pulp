@@ -41,7 +41,7 @@ resource "pulp_contentguard" "distribution" {
 ### Read-Only
 
 - `groups` (Attributes List) `groups` allowed to have role-based access. Supported only by Contentguards: Rbac. (see [below for nested schema](#nestedatt--groups))
-- `pulp_href` (String) The Pulp href (used as the resource identifier).
+- `pulp_href` (String) The `pulp_href` (used as the resource identifier).
 - `users` (Attributes List) `users` allowed to have role-based access. Supported only by Contentguards: Rbac. (see [below for nested schema](#nestedatt--users))
 
 <a id="nestedatt--groups"></a>
