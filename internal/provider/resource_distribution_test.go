@@ -108,6 +108,8 @@ func TestPullThroughDistributionWithAnonymousRole(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("pulp_distribution.docker", "name", "docker-anon"),
 					resource.TestCheckResourceAttr("pulp_distribution.docker", "private", "false"),
+					resource.TestCheckResourceAttrSet("pulp_distribution.docker", "distributions.#"),
+					resource.TestCheckResourceAttrSet("pulp_distribution.docker", "namespace"),
 				),
 			},
 		},

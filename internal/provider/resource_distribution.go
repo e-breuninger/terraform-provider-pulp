@@ -11,6 +11,7 @@ import (
 	client "github.com/e-breuninger/terraform-provider-pulp/internal/client"
 	validators "github.com/e-breuninger/terraform-provider-pulp/internal/validators"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -46,6 +47,7 @@ type PulpDistributionModel struct {
 	ContentGuard      types.String `tfsdk:"content_guard"`
 	Namespace         types.String `tfsdk:"namespace"`
 	Private           types.Bool   `tfsdk:"private"`
+	Distributions     types.List   `tfsdk:"distributions"`
 	PulpLabels        types.Map    `tfsdk:"pulp_labels"`
 }
 
@@ -147,12 +149,22 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 				},
 			},
 			"namespace": schema.StringAttribute{
-				Optional:            true,
 				Computed:            true,
-				MarkdownDescription: "The namespace of the distribution (if supported by the content_type/plugin_name).",
-				Validators: []validator.String{
-					validators.PulpHrefValidator(),
+				MarkdownDescription: "The namespace of this Distribution (if supported by the content_type/plugin_name).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 				},
+			},
+			"distributions": schema.ListAttribute{
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+				Validators: []validator.List{
+					listvalidator.ValueStringsAre(
+					validators.PulpHrefValidator(),
+					),
+				},
+				MarkdownDescription: "List of Distributions that use this Distribution as a remote (if supported by the content_type/plugin_name).",
 			},
 			"private": schema.BoolAttribute{
 				Optional:            true,
@@ -188,7 +200,7 @@ var supportedFeatures = map[string]map[string]bool{
 	"python/pypi":            {"content_guard": true},
 	"npm/npm":                {"content_guard": true},
 	"container/container":    {"content_guard": true},
-	"container/pull-through": {"content_guard": true, "private": true, "namespace": true},
+	"container/pull-through": {"content_guard": true, "private": true, "namespace": true, "distributions": true},
 	"rpm/rpm":                {"content_guard": true},
 	"deb/apt":                {"content_guard": true},
 	"ansible/ansible":        {"content_guard": true},
@@ -236,10 +248,12 @@ func buildDistributionBody(ctx context.Context, plan PulpDistributionModel) map[
 		}
 	}
 
-	// Not every distribution has a namespace
-	if supportsFeature(plan.ContentType.ValueString(), plan.PluginName.ValueString(), "namespace") {
-		if !plan.Namespace.IsNull() && !plan.Namespace.IsUnknown() {
-			body["namespace"] = plan.Namespace.ValueString()
+	// Not every distribution has a distributions attribute
+	if supportsFeature(plan.ContentType.ValueString(), plan.PluginName.ValueString(), "distributions") {
+		if !plan.Distributions.IsNull() && !plan.Distributions.IsUnknown() {
+			var distList []string
+			plan.Distributions.ElementsAs(ctx, &distList, false)
+			body["distributions"] = distList
 		}
 	}
 
@@ -304,6 +318,12 @@ func hydrateDistributionModel(ctx context.Context, data map[string]any, model *P
 		model.Namespace = types.StringValue(v)
 	} else {
 		model.Namespace = types.StringNull()
+	}
+
+	if _, ok := data["distributions"].([]any); ok {
+		model.Distributions = *internal.StringList(ctx, data, "distributions")
+	} else {
+		model.Distributions = types.ListNull(types.StringType)
 	}
 
 	if v, ok := data["private"].(bool); ok {
