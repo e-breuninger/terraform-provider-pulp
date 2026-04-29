@@ -16,6 +16,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
 )
 
+// ImportState is a helper function to import a resource by its pulp_href,
+// parsing content_type and plugin_name for use in the resource.
 func ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) []string {
 	pulpHref := req.ID
 
@@ -31,6 +33,8 @@ func ImportState(ctx context.Context, req resource.ImportStateRequest, resp *res
 	return parts
 }
 
+// StringList extracts a types.List of strings from the given data map at the specified key,
+// returning nil if the key is not present or not a list of strings.
 func StringList(ctx context.Context, data map[string]any, key string) *types.List {
 	if v, ok := data[key].([]any); ok {
 		guardElems := make([]types.String, 0, len(v))
@@ -47,7 +51,7 @@ func StringList(ctx context.Context, data map[string]any, key string) *types.Lis
 	return nil
 }
 
-// listToStrings converts a types.List of strings to []string, returning nil for null/unknown.
+// ListToStrings converts a types.List of strings to []string, returning nil for null/unknown.
 func ListToStrings(ctx context.Context, l types.List) ([]string, error) {
 	if l.IsNull() || l.IsUnknown() {
 		return nil, nil
@@ -62,7 +66,7 @@ func ListToStrings(ctx context.Context, l types.List) ([]string, error) {
 	return out, nil
 }
 
-// stringsToList converts a []string into a types.List, sorted for stable state.
+// StringsToList converts a []string into a types.List, sorted for stable state.
 func StringsToList(in []string) types.List {
 	sort.Strings(in)
 	vals := make([]attr.Value, 0, len(in))
@@ -73,7 +77,7 @@ func StringsToList(in []string) types.List {
 	return l
 }
 
-// diff returns (toAdd, toRemove) between desired and current slices.
+// Diff returns (toAdd, toRemove) between desired and current slices.
 func Diff(desired, current []string) (toAdd, toRemove []string) {
 	d := map[string]struct{}{}
 	for _, s := range desired {
