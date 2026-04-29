@@ -44,6 +44,7 @@ type PulpDistributionModel struct {
 	AllowUploads      types.Bool   `tfsdk:"allow_uploads"`
 	Remote            types.String `tfsdk:"remote"`
 	ContentGuard      types.String `tfsdk:"content_guard"`
+	Private           types.Bool   `tfsdk:"private"`
 	PulpLabels        types.Map    `tfsdk:"pulp_labels"`
 }
 
@@ -144,6 +145,11 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 					validators.PulpHrefValidator(),
 				},
 			},
+			"private": schema.BoolAttribute{
+				Optional:            true,
+				Computed:            true,
+				MarkdownDescription: "If set to true, this disallows anonymous users to pull from this Distribution.",
+			},
 			"pulp_labels": schema.MapAttribute{
 				Optional:            true,
 				Computed:            true,
@@ -203,6 +209,11 @@ func buildDistributionBody(ctx context.Context, plan PulpDistributionModel) map[
 	if !plan.Remote.IsNull() && !plan.Remote.IsUnknown() {
 		body["remote"] = plan.Remote.ValueString()
 	}
+	if !plan.Private.IsNull() && !plan.Private.IsUnknown() {
+		body["private"] = plan.Private.ValueBool()
+	}
+
+	// Convert pulp_labels from types.Map to map[string]string
 	if !plan.PulpLabels.IsNull() && !plan.PulpLabels.IsUnknown() {
 		labels := make(map[string]string)
 		plan.PulpLabels.ElementsAs(ctx, &labels, false)
@@ -266,7 +277,13 @@ func hydrateDistributionModel(ctx context.Context, data map[string]any, model *P
 		model.ContentGuard = types.StringNull()
 	}
 
-	// password is write-only in Pulp, never returned
+	if v, ok := data["private"].(bool); ok {
+		model.Private = types.BoolValue(v)
+	} else {
+		model.Private = types.BoolNull()
+	}
+
+	// Convert pulp_labels from map[string]any to types.Map
 	if v, ok := data["pulp_labels"].(map[string]any); ok {
 		elems := make(map[string]types.String)
 		for k, val := range v {

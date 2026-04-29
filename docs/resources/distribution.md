@@ -56,6 +56,7 @@ resource "pulp_distribution" "docker" {
 
 - `allow_uploads` (Boolean) Whether to allow uploads to this Distribution.
 - `content_guard` (String) The `pulp_href` of the Content Guard to use for this Distribution (if supported by the content_type/plugin_name).
+- `private` (Boolean) If set to true, this disallows anonymous users to pull from this Distribution.
 - `pulp_labels` (Map of String) Key/value labels.
 - `remote` (String) The name of the Remote from which content should be pulled.
 - `repository` (String) The name of the Repository that should be served at the base_path.
