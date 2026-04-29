@@ -82,3 +82,34 @@ func TestDistributionResource(t *testing.T) {
 		},
 	})
 }
+
+func TestPullThroughDistributionWithAnonymousRole(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + `
+			resource "pulp_remote" "docker_pt" {
+				content_type = "container"
+				plugin_name  = "pull-through"
+				url          = "https://registry-1.docker.io"
+				name         = "docker_pt_anon"
+			}
+
+			resource "pulp_distribution" "docker" {
+				content_type = "container"
+				plugin_name  = "pull-through"
+				name         = "docker-anon"
+				base_path    = "docker-anon"
+				remote       = pulp_remote.docker_pt.pulp_href
+				private 		 = false
+			}
+			`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("pulp_distribution.docker", "name", "docker-anon"),
+					resource.TestCheckResourceAttr("pulp_distribution.docker", "private", "false"),
+				),
+			},
+		},
+	})
+}
