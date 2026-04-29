@@ -36,11 +36,11 @@ resource "pulp_user" "breuninger" {
 - `email` (String) The email address of this User.
 - `first_name` (String) The first name of this User.
 - `is_active` (Boolean) Whether this User account is active.
-- `is_staff` (Boolean) Whether this User has staff privileges.
+- `is_staff` (Boolean) Whether this User can log into the admin site.
 - `last_name` (String) The last name of this User.
-- `password` (String, Sensitive) The password for this User.
+- `password` (String, Sensitive) The password for this User. Pulp allows empty passwords but they are not recommended.
 
 ### Read-Only
 
 - `id` (Number) The Pulp user ID.
-- `pulp_href` (String) The Pulp href (used as the resource identifier).
+- `pulp_href` (String) The `pulp_href` (used as the resource identifier).

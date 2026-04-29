@@ -44,7 +44,7 @@ func (r *pulpGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 		Attributes: map[string]schema.Attribute{
 			"pulp_href": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "The Pulp href (used as the resource identifier).",
+				MarkdownDescription: "The `pulp_href` (used as the resource identifier).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},

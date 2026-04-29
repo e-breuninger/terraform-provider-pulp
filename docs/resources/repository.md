@@ -29,4 +29,4 @@ Manages a Pulp Repository for any content type.
 
 ### Read-Only
 
-- `pulp_href` (String) The Pulp href (used as the resource identifier).
+- `pulp_href` (String) The `pulp_href` (used as the resource identifier).

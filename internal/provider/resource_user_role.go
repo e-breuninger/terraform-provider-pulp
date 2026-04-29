@@ -50,7 +50,7 @@ func (r *pulpUserRoleResource) Schema(_ context.Context, _ resource.SchemaReques
 		Attributes: map[string]schema.Attribute{
 			"pulp_href": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "The Pulp href (used as the resource identifier).",
+				MarkdownDescription: "The `pulp_href` (used as the resource identifier).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -65,7 +65,7 @@ func (r *pulpUserRoleResource) Schema(_ context.Context, _ resource.SchemaReques
 			},
 			"content_object": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: "The href of the object this role applies to.",
+				MarkdownDescription: "The href of the object this Role applies to.",
 			},
 			"content_object_prn": schema.StringAttribute{
 				Optional: true,
@@ -77,7 +77,7 @@ func (r *pulpUserRoleResource) Schema(_ context.Context, _ resource.SchemaReques
 			},
 			"domain": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: "Domain this role should be applied on, mutually exclusive with content_object.",
+				MarkdownDescription: "Domain this Role should be applied on, mutually exclusive with content_object.",
 			},
 		},
 	}

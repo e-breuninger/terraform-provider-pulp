@@ -10,7 +10,9 @@ import (
 
 	internal "github.com/e-breuninger/terraform-provider-pulp/internal"
 	client "github.com/e-breuninger/terraform-provider-pulp/internal/client"
+	validators "github.com/e-breuninger/terraform-provider-pulp/internal/validators"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -67,7 +69,7 @@ func (r *pulpContentGuardResource) Schema(_ context.Context, _ resource.SchemaRe
 		Attributes: map[string]schema.Attribute{
 			"pulp_href": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "The Pulp href (used as the resource identifier).",
+				MarkdownDescription: "The `pulp_href` (used as the resource identifier).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -132,6 +134,11 @@ func (r *pulpContentGuardResource) Schema(_ context.Context, _ resource.SchemaRe
 				Optional:            true,
 				ElementType:         types.StringType,
 				MarkdownDescription: "`guards` for Composite. Supported only by Contentguards: Composite.",
+				Validators: []validator.List{
+					listvalidator.ValueStringsAre(
+						validators.PulpHrefValidator(),
+					),
+				},
 			},
 
 			// Contentguards: Rbac exclusive
@@ -264,17 +271,8 @@ func hydrateContentGuardModel(ctx context.Context, data map[string]any, model *P
 	}
 
 	// Contentguards: Composite exclusive
-	if v, ok := data["guards"].([]any); ok {
-		guardElems := make([]types.String, 0, len(v))
-		for _, g := range v {
-			if s, ok := g.(string); ok {
-				guardElems = append(guardElems, types.StringValue(s))
-			}
-		}
-		guardList, diags := types.ListValueFrom(ctx, types.StringType, guardElems)
-		if !diags.HasError() {
-			model.Guards = guardList
-		}
+	if _, ok := data["guards"].([]any); ok {
+		model.Guards = *internal.StringList(ctx, data, "guards")
 	}
 
 	// Contentguards: Rbac exclusive — users (nested objects)

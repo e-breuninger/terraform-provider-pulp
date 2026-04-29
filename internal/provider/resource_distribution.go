@@ -61,7 +61,7 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 		Attributes: map[string]schema.Attribute{
 			"pulp_href": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "The Pulp href (used as the resource identifier).",
+				MarkdownDescription: "The `pulp_href` (used as the resource identifier).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -135,7 +135,7 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 			"remote": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
-				MarkdownDescription: "The name of the Remote from which content should be pulled.",
+				MarkdownDescription: "The `pulp_href` of the Remote from which content should be pulled.",
 				Validators: []validator.String{
 					validators.PulpHrefValidator(),
 				},
@@ -161,7 +161,7 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 				ElementType: types.StringType,
 				Validators: []validator.List{
 					listvalidator.ValueStringsAre(
-					validators.PulpHrefValidator(),
+						validators.PulpHrefValidator(),
 					),
 				},
 				MarkdownDescription: "List of Distributions that use this Distribution as a remote (if supported by the content_type/plugin_name).",

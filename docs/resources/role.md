@@ -24,4 +24,4 @@ Manages a Pulp Role.
 ### Read-Only
 
 - `locked` (Boolean) Whether this Role is locked.
-- `pulp_href` (String) The Pulp href (used as the resource identifier).
+- `pulp_href` (String) The `pulp_href` (used as the resource identifier).
