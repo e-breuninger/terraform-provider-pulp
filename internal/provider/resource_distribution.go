@@ -44,6 +44,7 @@ type PulpDistributionModel struct {
 	AllowUploads      types.Bool   `tfsdk:"allow_uploads"`
 	Remote            types.String `tfsdk:"remote"`
 	ContentGuard      types.String `tfsdk:"content_guard"`
+	Namespace         types.String `tfsdk:"namespace"`
 	Private           types.Bool   `tfsdk:"private"`
 	PulpLabels        types.Map    `tfsdk:"pulp_labels"`
 }
@@ -145,6 +146,14 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 					validators.PulpHrefValidator(),
 				},
 			},
+			"namespace": schema.StringAttribute{
+				Optional:            true,
+				Computed:            true,
+				MarkdownDescription: "The namespace of the distribution (if supported by the content_type/plugin_name).",
+				Validators: []validator.String{
+					validators.PulpHrefValidator(),
+				},
+			},
 			"private": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
@@ -173,21 +182,24 @@ func (r *pulpDistributionResource) Configure(_ context.Context, req resource.Con
 	r.client = c
 }
 
-// Distribution (content_type, plugin_name) pairs that accept content_guard.
-var distributionSupportsContentGuard = map[string]map[string]bool{
-	"file":      {"file": true},
-	"python":    {"pypi": true},
-	"container": {"container": true, "pull-through": true},
-	"rpm":       {"rpm": true},
-	"deb":       {"apt": true},
-	"ansible":   {"ansible": true},
-	"maven":     {"maven": true},
-	"ostree":    {"ostree": true},
-	"core":      {"artifacts": true, "openpgp": true},
+// Map of supported features by content_type/plugin_name.
+var supportedFeatures = map[string]map[string]bool{
+	"file/file":              {"content_guard": true},
+	"python/pypi":            {"content_guard": true},
+	"npm/npm":                {"content_guard": true},
+	"container/container":    {"content_guard": true},
+	"container/pull-through": {"content_guard": true, "private": true, "namespace": true},
+	"rpm/rpm":                {"content_guard": true},
+	"deb/apt":                {"content_guard": true},
+	"ansible/ansible":        {"content_guard": true},
+	"maven/maven":            {"content_guard": true},
+	"ostree/ostree":          {"content_guard": true},
+	"core/artifacts":         {"content_guard": true},
+	"core/openpgp":           {"content_guard": true},
 }
 
-func supportsContentGuard(contentType, pluginName string) bool {
-	return distributionSupportsContentGuard[contentType][pluginName]
+func supportsFeature(contentType, pluginName string, feature string) bool {
+	return supportedFeatures[fmt.Sprintf("%s/%s", contentType, pluginName)][feature]
 }
 
 // Helper: build the body map from the plan, skipping null/unknown values.
@@ -209,9 +221,6 @@ func buildDistributionBody(ctx context.Context, plan PulpDistributionModel) map[
 	if !plan.Remote.IsNull() && !plan.Remote.IsUnknown() {
 		body["remote"] = plan.Remote.ValueString()
 	}
-	if !plan.Private.IsNull() && !plan.Private.IsUnknown() {
-		body["private"] = plan.Private.ValueBool()
-	}
 
 	// Convert pulp_labels from types.Map to map[string]string
 	if !plan.PulpLabels.IsNull() && !plan.PulpLabels.IsUnknown() {
@@ -221,9 +230,23 @@ func buildDistributionBody(ctx context.Context, plan PulpDistributionModel) map[
 	}
 
 	// Not every distribution has a content guard
-	if supportsContentGuard(plan.ContentType.ValueString(), plan.PluginName.ValueString()) {
+	if supportsFeature(plan.ContentType.ValueString(), plan.PluginName.ValueString(), "content_guard") {
 		if !plan.ContentGuard.IsNull() && !plan.ContentGuard.IsUnknown() {
 			body["content_guard"] = plan.ContentGuard.ValueString()
+		}
+	}
+
+	// Not every distribution has a namespace
+	if supportsFeature(plan.ContentType.ValueString(), plan.PluginName.ValueString(), "namespace") {
+		if !plan.Namespace.IsNull() && !plan.Namespace.IsUnknown() {
+			body["namespace"] = plan.Namespace.ValueString()
+		}
+	}
+
+	// Not every distribution supports the private flag
+	if supportsFeature(plan.ContentType.ValueString(), plan.PluginName.ValueString(), "private") {
+		if !plan.Private.IsNull() && !plan.Private.IsUnknown() {
+			body["private"] = plan.Private.ValueBool()
 		}
 	}
 
@@ -275,6 +298,12 @@ func hydrateDistributionModel(ctx context.Context, data map[string]any, model *P
 		model.ContentGuard = types.StringValue(v)
 	} else {
 		model.ContentGuard = types.StringNull()
+	}
+
+	if v, ok := data["namespace"].(string); ok && v != "" {
+		model.Namespace = types.StringValue(v)
+	} else {
+		model.Namespace = types.StringNull()
 	}
 
 	if v, ok := data["private"].(bool); ok {
