@@ -40,6 +40,7 @@ type PulpProviderModel struct {
 	ServerUrl types.String `tfsdk:"server_url"`
 	Username  types.String `tfsdk:"username"`
 	Password  types.String `tfsdk:"password"`
+	ForceIPv4 types.Bool   `tfsdk:"force_ipv4"`
 }
 
 func (p *PulpProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -63,6 +64,10 @@ func (p *PulpProvider) Schema(ctx context.Context, req provider.SchemaRequest, r
 				Sensitive:           true,
 				MarkdownDescription: "Password for Pulp API. May also be provided via `PULP_PASSWORD` environment variable.",
 			},
+			"force_ipv4": schema.BoolAttribute{
+				Optional:            true,
+				MarkdownDescription: "Whether to force the provider to use IPv4 when connecting to the Pulp API. May also be provided via `PULP_FORCE_IPV4` environment variable.",
+			},
 		},
 	}
 }
@@ -79,9 +84,19 @@ func (p *PulpProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 	server_url := os.Getenv("PULP_SERVER_URL")
 	username := os.Getenv("PULP_USERNAME")
 	password := os.Getenv("PULP_PASSWORD")
+	forceIPv4 := os.Getenv("PULP_FORCE_IPV4") == "true"
 
 	if !config.ServerUrl.IsNull() {
 		server_url = config.ServerUrl.ValueString()
+	}
+	if !config.Username.IsNull() {
+		username = config.Username.ValueString()
+	}
+	if !config.Password.IsNull() {
+		password = config.Password.ValueString()
+	}
+	if !config.ForceIPv4.IsNull() {
+		forceIPv4 = config.ForceIPv4.ValueBool()
 	}
 
 	parsedURL, urlParseError := urlx.Parse(server_url)
@@ -90,18 +105,16 @@ func (p *PulpProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 		return
 	}
 
-	if !config.Username.IsNull() {
-		username = config.Username.ValueString()
-	}
-
-	if !config.Password.IsNull() {
-		password = config.Password.ValueString()
-	}
-
-	pulpClient := client.NewPulpClient(
+	pulpClient, err := client.NewPulpClient(
 		parsedURL.String(),
-		username, password,
+		username,
+		password,
+		forceIPv4,
 	)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to create Pulp client", fmt.Sprintf("Error: %s", err))
+		return
+	}
 
 	resp.DataSourceData = pulpClient
 	resp.ResourceData = pulpClient
