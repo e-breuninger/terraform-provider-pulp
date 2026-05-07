@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -19,19 +20,34 @@ type PulpClient struct {
 	HTTPClient *http.Client
 	Username   string
 	Password   string
+	ForceIPv4  bool
 }
 
 const taskPollingInterval = 2 * time.Second
 
-func NewPulpClient(baseURL, username, password string) *PulpClient {
+func NewPulpClient(baseURL, username, password string, forceIPv4 bool) (*PulpClient, error) {
+	dialer := net.Dialer{}
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return nil, fmt.Errorf("http.DefaultTransport is not *http.Transport")
+	}
+	transport := defaultTransport.Clone()
+	if forceIPv4 {
+		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return dialer.DialContext(ctx, "tcp4", addr)
+		}
+	}
+
 	return &PulpClient{
 		BaseURL: baseURL,
 		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: transport,
 		},
-		Username: username,
-		Password: password,
-	}
+		Username:  username,
+		Password:  password,
+		ForceIPv4: forceIPv4,
+	}, nil
 }
 
 func (c *PulpClient) doRequest(ctx context.Context, method, url string, body map[string]any) (map[string]any, int, error) {
