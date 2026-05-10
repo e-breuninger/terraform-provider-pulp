@@ -11,6 +11,7 @@ import (
 	client "github.com/e-breuninger/terraform-provider-pulp/internal/client"
 	validators "github.com/e-breuninger/terraform-provider-pulp/internal/validators"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -33,13 +34,14 @@ type pulpRepositoryResource struct {
 }
 
 type PulpRepositoryModel struct {
-	PulpHref    types.String `tfsdk:"pulp_href"`
-	ContentType types.String `tfsdk:"content_type"`
-	PluginName  types.String `tfsdk:"plugin_name"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
-	Remote      types.String `tfsdk:"remote"`
-	PulpLabels  types.Map    `tfsdk:"pulp_labels"`
+	PulpHref           types.String `tfsdk:"pulp_href"`
+	ContentType        types.String `tfsdk:"content_type"`
+	PluginName         types.String `tfsdk:"plugin_name"`
+	Name               types.String `tfsdk:"name"`
+	Description        types.String `tfsdk:"description"`
+	Remote             types.String `tfsdk:"remote"`
+	PulpLabels         types.Map    `tfsdk:"pulp_labels"`
+	RetainRepoVersions types.Int64  `tfsdk:"retain_repo_versions"`
 }
 
 func (r *pulpRepositoryResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -121,6 +123,13 @@ func (r *pulpRepositoryResource) Schema(_ context.Context, _ resource.SchemaRequ
 				ElementType:         types.StringType,
 				MarkdownDescription: "Key/value labels.",
 			},
+			"retain_repo_versions": schema.Int64Attribute{
+				Optional:            true,
+				MarkdownDescription: "Maximum number of repository versions to retain. Omitting this attribute (or setting it to `null`) keeps all versions.",
+				Validators: []validator.Int64{
+					int64validator.AtLeast(1),
+				},
+			},
 		},
 	}
 }
@@ -152,6 +161,14 @@ func buildRepositoryBody(ctx context.Context, plan PulpRepositoryModel) map[stri
 		body["pulp_labels"] = labels
 	}
 
+	// retain_repo_versions: send null to clear the cap when unset or omitted,
+	// send the value when explicitly specified.
+	if plan.RetainRepoVersions.IsUnknown() || plan.RetainRepoVersions.IsNull() {
+		body["retain_repo_versions"] = nil
+	} else {
+		body["retain_repo_versions"] = plan.RetainRepoVersions.ValueInt64()
+	}
+
 	return body
 }
 
@@ -172,6 +189,14 @@ func hydrateRepositoryModel(ctx context.Context, data map[string]any, model *Pul
 	}
 	if v, ok := data["remote"].(string); ok {
 		model.Remote = types.StringValue(v)
+	}
+
+	// retain_repo_versions comes back as a JSON number (float64) or null.
+	switch v := data["retain_repo_versions"].(type) {
+	case float64:
+		model.RetainRepoVersions = types.Int64Value(int64(v))
+	case nil:
+		model.RetainRepoVersions = types.Int64Null()
 	}
 
 	// Convert pulp_labels from map[string]any to types.Map
