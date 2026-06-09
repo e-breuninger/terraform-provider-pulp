@@ -1,4 +1,4 @@
-// Copyright (c) E. Breuninger GmbH & Co
+// Copyright E. Breuninger GmbH & Co 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package provider
