@@ -11,7 +11,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
 
-var PulpHrefRegex = regexp.MustCompile(`^\/pulp\/api\/v3\/`)
+// PulpHrefRegex matches "/pulp/api/<version>/", e.g. "/pulp/api/v3/" or
+// "/pulp/api/v4/". Pulp's API surface is expected to stay the same across
+// versions - only the version segment of the path changes.
+var PulpHrefRegex = regexp.MustCompile(`^\/pulp\/api\/v\d+\/`)
 
 type PulpHrefValidatorType struct{}
 
@@ -20,7 +23,7 @@ func PulpHrefValidator() validator.String {
 }
 
 func (v PulpHrefValidatorType) Description(ctx context.Context) string {
-	return "must start with /pulp/api/v3/"
+	return "must start with /pulp/api/v<version>/, e.g. /pulp/api/v3/"
 }
 
 func (v PulpHrefValidatorType) MarkdownDescription(ctx context.Context) string {

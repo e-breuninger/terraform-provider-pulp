@@ -22,11 +22,15 @@ type PulpClient struct {
 	Username   string
 	Password   string
 	ForceIPv4  bool
+	ApiVersion string
 }
 
 const taskPollingInterval = 2 * time.Second
 
-func NewPulpClient(baseURL, username, password string, forceIPv4 bool) (*PulpClient, error) {
+// DefaultApiVersion is used when no api_version is configured on the provider.
+const DefaultApiVersion = "v3"
+
+func NewPulpClient(baseURL, username, password, apiVersion string, forceIPv4 bool) (*PulpClient, error) {
 	dialer := net.Dialer{}
 	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
@@ -39,16 +43,29 @@ func NewPulpClient(baseURL, username, password string, forceIPv4 bool) (*PulpCli
 		}
 	}
 
+	if apiVersion == "" {
+		apiVersion = DefaultApiVersion
+	}
+
 	return &PulpClient{
 		BaseURL: baseURL,
 		HTTPClient: &http.Client{
 			Timeout:   30 * time.Second,
 			Transport: transport,
 		},
-		Username:  username,
-		Password:  password,
-		ForceIPv4: forceIPv4,
+		Username:   username,
+		Password:   password,
+		ForceIPv4:  forceIPv4,
+		ApiVersion: apiVersion,
 	}, nil
+}
+
+// apiRoot returns the base "/pulp/api/{version}" path prefix used to build
+// resource collection URLs (e.g. for Create and List). Reads/updates/deletes
+// use the pulp_href returned by the server directly and don't need this,
+// since Pulp already encodes its own API version into every href.
+func (c *PulpClient) apiRoot() string {
+	return fmt.Sprintf("%s/pulp/api/%s", c.BaseURL, c.ApiVersion)
 }
 
 func (c *PulpClient) doRequest(ctx context.Context, method, url string, body map[string]any) (map[string]any, int, error) {
@@ -103,7 +120,7 @@ func BuildResourcePath(resourceType, contentType, pluginName string) string {
 }
 
 func (c *PulpClient) Create(ctx context.Context, resourcePath string, body map[string]any) (map[string]any, error) {
-	url := fmt.Sprintf("%s/pulp/api/v3/%s/", c.BaseURL, resourcePath)
+	url := fmt.Sprintf("%s/%s/", c.apiRoot(), resourcePath)
 	result, statusCode, err := c.doRequest(ctx, http.MethodPost, url, body)
 	if err != nil {
 		return nil, err
@@ -119,7 +136,7 @@ func (c *PulpClient) Create(ctx context.Context, resourcePath string, body map[s
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch task result: %w", err)
 		}
-		if created, ok := task["created_resources"].([]interface{}); ok && len(created) > 0 {
+		if created, ok := task["created_resources"].([]any); ok && len(created) > 0 {
 			href, ok := created[0].(string)
 			if !ok {
 				return nil, fmt.Errorf("expected href to be a string, got %T", created[0])
@@ -153,7 +170,7 @@ func (c *PulpClient) ReadByHref(ctx context.Context, pulpHref string) (map[strin
 // List GETs the paginated listing endpoint at resourcePath, following the
 // "next" links until exhausted, and returns the combined "results".
 func (c *PulpClient) List(ctx context.Context, resourcePath string, query url.Values) ([]map[string]any, error) {
-	nextURL := fmt.Sprintf("%s/pulp/api/v3/%s/", c.BaseURL, resourcePath)
+	nextURL := fmt.Sprintf("%s/%s/", c.apiRoot(), resourcePath)
 	if len(query) > 0 {
 		nextURL = fmt.Sprintf("%s?%s", nextURL, query.Encode())
 	}

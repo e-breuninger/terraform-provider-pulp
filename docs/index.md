@@ -30,4 +30,5 @@ provider "pulp" {
 
 ### Optional
 
+- `api_version` (String) The Pulp API version segment used to build request paths, e.g. `v3` or `v4`. Defaults to `v3`. May also be provided via `PULP_VERSION` environment variable.
 - `force_ipv4` (Boolean) Whether to force the provider to use IPv4 when connecting to the Pulp API. May also be provided via `PULP_FORCE_IPV4` environment variable.

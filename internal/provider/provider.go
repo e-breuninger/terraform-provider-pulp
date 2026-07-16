@@ -37,10 +37,11 @@ type PulpProvider struct {
 
 // PulpProviderModel describes the provider data model.
 type PulpProviderModel struct {
-	ServerUrl types.String `tfsdk:"server_url"`
-	Username  types.String `tfsdk:"username"`
-	Password  types.String `tfsdk:"password"`
-	ForceIPv4 types.Bool   `tfsdk:"force_ipv4"`
+	ServerUrl  types.String `tfsdk:"server_url"`
+	Username   types.String `tfsdk:"username"`
+	Password   types.String `tfsdk:"password"`
+	ForceIPv4  types.Bool   `tfsdk:"force_ipv4"`
+	ApiVersion types.String `tfsdk:"api_version"`
 }
 
 func (p *PulpProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -68,6 +69,10 @@ func (p *PulpProvider) Schema(ctx context.Context, req provider.SchemaRequest, r
 				Optional:            true,
 				MarkdownDescription: "Whether to force the provider to use IPv4 when connecting to the Pulp API. May also be provided via `PULP_FORCE_IPV4` environment variable.",
 			},
+			"api_version": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "The Pulp API version segment used to build request paths, e.g. `v3` or `v4`. Defaults to `v3`. May also be provided via `PULP_VERSION` environment variable.",
+			},
 		},
 	}
 }
@@ -85,6 +90,7 @@ func (p *PulpProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 	username := os.Getenv("PULP_USERNAME")
 	password := os.Getenv("PULP_PASSWORD")
 	forceIPv4 := os.Getenv("PULP_FORCE_IPV4") == "true"
+	apiVersion := os.Getenv("PULP_VERSION")
 
 	if !config.ServerUrl.IsNull() {
 		server_url = config.ServerUrl.ValueString()
@@ -98,6 +104,9 @@ func (p *PulpProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 	if !config.ForceIPv4.IsNull() {
 		forceIPv4 = config.ForceIPv4.ValueBool()
 	}
+	if !config.ApiVersion.IsNull() {
+		apiVersion = config.ApiVersion.ValueString()
+	}
 
 	parsedURL, urlParseError := urlx.Parse(server_url)
 	if urlParseError != nil {
@@ -109,6 +118,7 @@ func (p *PulpProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 		parsedURL.String(),
 		username,
 		password,
+		apiVersion,
 		forceIPv4,
 	)
 	if err != nil {
