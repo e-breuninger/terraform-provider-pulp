@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -147,6 +148,47 @@ func (c *PulpClient) ReadByHref(ctx context.Context, pulpHref string) (map[strin
 		return nil, fmt.Errorf("read failed with status %d: %v", statusCode, result)
 	}
 	return result, nil
+}
+
+// List GETs the paginated listing endpoint at resourcePath, following the
+// "next" links until exhausted, and returns the combined "results".
+func (c *PulpClient) List(ctx context.Context, resourcePath string, query url.Values) ([]map[string]any, error) {
+	nextURL := fmt.Sprintf("%s/pulp/api/v3/%s/", c.BaseURL, resourcePath)
+	if len(query) > 0 {
+		nextURL = fmt.Sprintf("%s?%s", nextURL, query.Encode())
+	}
+
+	var allResults []map[string]any
+	for nextURL != "" {
+		result, statusCode, err := c.doRequest(ctx, http.MethodGet, nextURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		if statusCode != http.StatusOK {
+			return nil, fmt.Errorf("list failed with status %d: %v", statusCode, result)
+		}
+
+		results, ok := result["results"].([]any)
+		if !ok {
+			return nil, fmt.Errorf("expected results to be a list, got %T", result["results"])
+		}
+		for _, item := range results {
+			m, ok := item.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("expected result item to be a map, got %T", item)
+			}
+			allResults = append(allResults, m)
+		}
+
+		next, ok := result["next"].(string)
+		if !ok || next == "" {
+			nextURL = ""
+			continue
+		}
+		nextURL = next
+	}
+
+	return allResults, nil
 }
 
 func (c *PulpClient) Update(ctx context.Context, pulpHref string, body map[string]any) (map[string]any, error) {

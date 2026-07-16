@@ -88,12 +88,8 @@ func hydrateGroupModel(ctx context.Context, data map[string]any, model *PulpGrou
 	tflog.Debug(ctx, "Hydrating group model", map[string]any{
 		"data": fmt.Sprintf("%+v", data),
 	})
-	if v, ok := data["pulp_href"].(string); ok {
-		model.PulpHref = types.StringValue(v)
-	}
-	if v, ok := data["name"].(string); ok {
-		model.Name = types.StringValue(v)
-	}
+	model.PulpHref = internal.StrOrNull(data, "pulp_href")
+	model.Name = internal.StrOrNull(data, "name")
 }
 
 func (r *pulpGroupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

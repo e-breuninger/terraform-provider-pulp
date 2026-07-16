@@ -98,20 +98,13 @@ func (r *pulpUserRoleResource) Configure(_ context.Context, req resource.Configu
 
 func buildUserRoleBody(_ context.Context, plan PulpUserRoleModel) map[string]any {
 	body := map[string]any{
-		"role":               plan.Role.ValueString(),
-		"content_object":     nil,
-		"content_object_prn": nil,
+		"role": plan.Role.ValueString(),
 	}
 
-	if !plan.ContentObject.IsNull() && !plan.ContentObject.IsUnknown() {
-		body["content_object"] = plan.ContentObject.ValueString()
-	}
-	if !plan.ContentObjectPrn.IsNull() && !plan.ContentObjectPrn.IsUnknown() {
-		body["content_object_prn"] = plan.ContentObjectPrn.ValueString()
-	}
-	if !plan.Domain.IsNull() && !plan.Domain.IsUnknown() {
-		body["domain"] = plan.Domain.ValueString()
-	}
+	// content_object, content_object_prn, and domain are all nullable in Pulp.
+	internal.SetStrField(body, "content_object", plan.ContentObject, true)
+	internal.SetStrField(body, "content_object_prn", plan.ContentObjectPrn, true)
+	internal.SetStrField(body, "domain", plan.Domain, true)
 
 	return body
 }
@@ -136,23 +129,10 @@ func hydrateUserRoleModel(ctx context.Context, data map[string]any, model *PulpU
 			}
 		}
 	}
-	if v, ok := data["role"].(string); ok {
-		model.Role = types.StringValue(v)
-	}
-	if v, ok := data["content_object"].(string); ok && v != "" {
-		model.ContentObject = types.StringValue(v)
-	} else {
-		model.ContentObject = types.StringNull()
-	}
-	if v, ok := data["content_object_prn"].(string); ok && v != "" {
-		model.ContentObjectPrn = types.StringValue(v)
-	} else {
-		model.ContentObjectPrn = types.StringNull()
-	}
-
-	if v, ok := data["domain"].(string); ok {
-		model.Domain = types.StringValue(v)
-	}
+	model.Role = internal.StrOrNull(data, "role")
+	model.ContentObject = internal.StrOrNullNonEmpty(data, "content_object")
+	model.ContentObjectPrn = internal.StrOrNullNonEmpty(data, "content_object_prn")
+	model.Domain = internal.StrOrNull(data, "domain")
 }
 
 func (r *pulpUserRoleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

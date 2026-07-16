@@ -107,15 +107,9 @@ func hydrateRoleModel(ctx context.Context, data map[string]any, model *PulpRoleM
 	tflog.Debug(ctx, "Hydrating role model", map[string]any{
 		"data": fmt.Sprintf("%+v", data),
 	})
-	if v, ok := data["pulp_href"].(string); ok {
-		model.PulpHref = types.StringValue(v)
-	}
-	if v, ok := data["name"].(string); ok {
-		model.Name = types.StringValue(v)
-	}
-	if v, ok := data["description"].(string); ok {
-		model.Description = types.StringValue(v)
-	}
+	model.PulpHref = internal.StrOrNull(data, "pulp_href")
+	model.Name = internal.StrOrNull(data, "name")
+	model.Description = internal.StrOrNull(data, "description")
 	if permissionList := internal.StringList(ctx, data, "permissions"); permissionList != nil {
 		permissionSet, diags := types.SetValue(permissionList.ElementType(ctx), permissionList.Elements())
 		if !diags.HasError() {
@@ -126,9 +120,7 @@ func hydrateRoleModel(ctx context.Context, data map[string]any, model *PulpRoleM
 			}
 		}
 	}
-	if v, ok := data["locked"].(bool); ok {
-		model.Locked = types.BoolValue(v)
-	}
+	model.Locked = internal.BoolOrNull(data, "locked")
 }
 
 func (r *pulpRoleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

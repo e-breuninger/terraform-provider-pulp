@@ -152,21 +152,14 @@ func buildRepositoryBody(ctx context.Context, plan PulpRepositoryModel) map[stri
 	body := map[string]any{
 		"name":        plan.Name.ValueString(),
 		"description": plan.Description.ValueString(),
-		"remote":      plan.Remote.ValueString(),
 	}
 
-	if !plan.PulpLabels.IsNull() && !plan.PulpLabels.IsUnknown() {
-		labels := make(map[string]string)
-		plan.PulpLabels.ElementsAs(ctx, &labels, false)
+	// Both remote and retain_repo_versions are nullable in Pulp.
+	internal.SetStrField(body, "remote", plan.Remote, true)
+	internal.SetIntField(body, "retain_repo_versions", plan.RetainRepoVersions, true)
+
+	if labels := internal.LabelsToMap(ctx, plan.PulpLabels); labels != nil {
 		body["pulp_labels"] = labels
-	}
-
-	// retain_repo_versions: send null to clear the cap when unset or omitted,
-	// send the value when explicitly specified.
-	if plan.RetainRepoVersions.IsUnknown() || plan.RetainRepoVersions.IsNull() {
-		body["retain_repo_versions"] = nil
-	} else {
-		body["retain_repo_versions"] = plan.RetainRepoVersions.ValueInt64()
 	}
 
 	return body
@@ -178,45 +171,12 @@ func (r *pulpRepositoryResource) resourcePath(plan PulpRepositoryModel) string {
 
 // Hydrate the model from a Pulp API response map.
 func hydrateRepositoryModel(ctx context.Context, data map[string]any, model *PulpRepositoryModel) {
-	if v, ok := data["pulp_href"].(string); ok {
-		model.PulpHref = types.StringValue(v)
-	}
-	if v, ok := data["name"].(string); ok {
-		model.Name = types.StringValue(v)
-	}
-	if v, ok := data["description"].(string); ok {
-		model.Description = types.StringValue(v)
-	}
-	if v, ok := data["remote"].(string); ok {
-		model.Remote = types.StringValue(v)
-	}
-
-	// retain_repo_versions comes back as a JSON number (float64) or null.
-	switch v := data["retain_repo_versions"].(type) {
-	case float64:
-		model.RetainRepoVersions = types.Int64Value(int64(v))
-	case nil:
-		model.RetainRepoVersions = types.Int64Null()
-	}
-
-	// Convert pulp_labels from map[string]any to types.Map
-	if v, ok := data["pulp_labels"].(map[string]any); ok {
-		elems := make(map[string]types.String)
-		for k, val := range v {
-			if s, ok := val.(string); ok {
-				elems[k] = types.StringValue(s)
-			}
-		}
-		// Convert to types.Map
-		labels := make(map[string]string)
-		for k, val := range v {
-			if s, ok := val.(string); ok {
-				labels[k] = s
-			}
-		}
-		mapVal, _ := types.MapValueFrom(ctx, types.StringType, labels)
-		model.PulpLabels = mapVal
-	}
+	model.PulpHref = internal.StrOrNull(data, "pulp_href")
+	model.Name = internal.StrOrNull(data, "name")
+	model.Description = internal.StrOrNull(data, "description")
+	model.Remote = internal.StrOrNull(data, "remote")
+	model.RetainRepoVersions = internal.IntOrNull(data, "retain_repo_versions")
+	model.PulpLabels = internal.LabelsOrNull(ctx, data)
 }
 
 func (r *pulpRepositoryResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

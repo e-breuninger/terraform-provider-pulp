@@ -106,6 +106,9 @@ func (r *pulpContentGuardResource) Schema(_ context.Context, _ resource.SchemaRe
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "A description for this ContentGuard.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 
 			// Contentguards: Header exclusive
@@ -205,9 +208,8 @@ func buildContentGuardBody(ctx context.Context, plan PulpContentGuardModel) map[
 		"name": plan.Name.ValueString(),
 	}
 
-	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
-		body["description"] = plan.Description.ValueString()
-	}
+	// description is nullable in Pulp.
+	internal.SetStrField(body, "description", plan.Description, true)
 
 	isCore := plan.ContentType.ValueString() == "core"
 	isCertguard := plan.ContentType.ValueString() == "certguard"
@@ -242,33 +244,17 @@ func hydrateContentGuardModel(ctx context.Context, data map[string]any, model *P
 	tflog.Debug(ctx, "Hydrating distribution model", map[string]any{
 		"data": fmt.Sprintf("%+v", data),
 	})
-	if v, ok := data["pulp_href"].(string); ok {
-		model.PulpHref = types.StringValue(v)
-	}
-	if v, ok := data["name"].(string); ok {
-		model.Name = types.StringValue(v)
-	}
-	if v, ok := data["description"].(string); ok {
-		model.Description = types.StringValue(v)
-	} else {
-		model.Description = types.StringNull()
-	}
+	model.PulpHref = internal.StrOrNull(data, "pulp_href")
+	model.Name = internal.StrOrNull(data, "name")
+	model.Description = internal.StrOrNull(data, "description")
 
 	// Contentguards: Header exclusive
-	if v, ok := data["header_name"].(string); ok {
-		model.HeaderName = types.StringValue(v)
-	}
-	if v, ok := data["header_value"].(string); ok {
-		model.HeaderValue = types.StringValue(v)
-	}
-	if v, ok := data["jq_filter"].(string); ok {
-		model.JqFilter = types.StringValue(v)
-	}
+	model.HeaderName = internal.StrOrNull(data, "header_name")
+	model.HeaderValue = internal.StrOrNull(data, "header_value")
+	model.JqFilter = internal.StrOrNull(data, "jq_filter")
 
 	// Contentguards: X509 / Rhsm exclusive
-	if v, ok := data["ca_certificate"].(string); ok {
-		model.CaCertificate = types.StringValue(v)
-	}
+	model.CaCertificate = internal.StrOrNull(data, "ca_certificate")
 
 	// Contentguards: Composite exclusive
 	if _, ok := data["guards"].([]any); ok {

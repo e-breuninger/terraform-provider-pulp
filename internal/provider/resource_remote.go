@@ -14,6 +14,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -114,6 +116,9 @@ func (r *pulpRemoteResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "Download policy: `immediate`, `on_demand`, or `streamed`.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.String{
 					stringvalidator.OneOf(
 						"immediate",
@@ -126,6 +131,9 @@ func (r *pulpRemoteResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "Whether TLS peer validation must be performed.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"username": schema.StringAttribute{
 				Optional:            true,
@@ -141,6 +149,9 @@ func (r *pulpRemoteResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Computed:            true,
 				ElementType:         types.StringType,
 				MarkdownDescription: "Key/value labels.",
+				PlanModifiers: []planmodifier.Map{
+					mapplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -159,28 +170,25 @@ func (r *pulpRemoteResource) Configure(_ context.Context, req resource.Configure
 	r.client = c
 }
 
-// Helper: build the body map from the plan, skipping null/unknown values.
+// Helper: build the body map from the plan, skipping unknown values and
+// only sending explicit null for fields Pulp actually allows to be null.
 func buildRemoteBody(ctx context.Context, plan PulpRemoteModel) map[string]any {
 	body := map[string]any{
 		"name": plan.Name.ValueString(),
 		"url":  plan.Url.ValueString(),
 	}
 
-	if !plan.Policy.IsNull() && !plan.Policy.IsUnknown() {
-		body["policy"] = plan.Policy.ValueString()
-	}
-	if !plan.TlsValidation.IsNull() && !plan.TlsValidation.IsUnknown() {
-		body["tls_validation"] = plan.TlsValidation.ValueBool()
-	}
-	if !plan.Username.IsNull() && !plan.Username.IsUnknown() {
-		body["username"] = plan.Username.ValueString()
-	}
-	if !plan.Password.IsNull() && !plan.Password.IsUnknown() {
-		body["password"] = plan.Password.ValueString()
-	}
-	if !plan.PulpLabels.IsNull() && !plan.PulpLabels.IsUnknown() {
-		labels := make(map[string]string)
-		plan.PulpLabels.ElementsAs(ctx, &labels, false)
+	// policy and tls_validation are non-nullable in Pulp (they have
+	// server-side defaults); never send an explicit null for them.
+	internal.SetStrField(body, "policy", plan.Policy, false)
+	internal.SetBoolField(body, "tls_validation", plan.TlsValidation, false)
+	// username and password are nullable (null clears stored credentials),
+	// but Pulp never returns them (write-only), so they're never Computed
+	// here and Unknown only happens if the user leaves them unset.
+	internal.SetStrField(body, "username", plan.Username, true)
+	internal.SetStrField(body, "password", plan.Password, true)
+
+	if labels := internal.LabelsToMap(ctx, plan.PulpLabels); labels != nil {
 		body["pulp_labels"] = labels
 	}
 
@@ -192,44 +200,20 @@ func (r *pulpRemoteResource) resourcePath(plan PulpRemoteModel) string {
 }
 
 // Hydrate the model from a Pulp API response map.
+//
+// Note: Pulp's Remote username/password fields are write-only and never
+// appear in GET/PATCH responses, so model.Username and model.Password are
+// intentionally left untouched here (they keep whatever value came from
+// the plan/state). Overwriting them from the (always-absent) response
+// would null them out and trip Terraform's "provider produced inconsistent
+// result after apply" check.
 func hydrateRemoteModel(ctx context.Context, data map[string]any, model *PulpRemoteModel) {
-	if v, ok := data["pulp_href"].(string); ok {
-		model.PulpHref = types.StringValue(v)
-	}
-	if v, ok := data["name"].(string); ok {
-		model.Name = types.StringValue(v)
-	}
-	if v, ok := data["url"].(string); ok {
-		model.Url = types.StringValue(v)
-	}
-	if v, ok := data["policy"].(string); ok {
-		model.Policy = types.StringValue(v)
-	}
-	if v, ok := data["tls_validation"].(bool); ok {
-		model.TlsValidation = types.BoolValue(v)
-	}
-	if v, ok := data["username"].(string); ok && v != "" {
-		model.Username = types.StringValue(v)
-	}
-
-	// Convert pulp_labels from map[string]any to types.Map
-	if v, ok := data["pulp_labels"].(map[string]any); ok {
-		elems := make(map[string]types.String)
-		for k, val := range v {
-			if s, ok := val.(string); ok {
-				elems[k] = types.StringValue(s)
-			}
-		}
-		// Convert to types.Map
-		labels := make(map[string]string)
-		for k, val := range v {
-			if s, ok := val.(string); ok {
-				labels[k] = s
-			}
-		}
-		mapVal, _ := types.MapValueFrom(ctx, types.StringType, labels)
-		model.PulpLabels = mapVal
-	}
+	model.PulpHref = internal.StrOrNull(data, "pulp_href")
+	model.Name = internal.StrOrNull(data, "name")
+	model.Url = internal.StrOrNull(data, "url")
+	model.Policy = internal.StrOrNull(data, "policy")
+	model.TlsValidation = internal.BoolOrNull(data, "tls_validation")
+	model.PulpLabels = internal.LabelsOrNull(ctx, data)
 }
 
 func (r *pulpRemoteResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -267,7 +251,7 @@ func (r *pulpRemoteResource) Read(ctx context.Context, req resource.ReadRequest,
 
 	result, err := r.client.ReadByHref(ctx, state.PulpHref.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Failed to read remote", err.Error())
+		resp.Diagnostics.AddError("Failed to read Remote", err.Error())
 		return
 	}
 	if result == nil {
@@ -292,7 +276,7 @@ func (r *pulpRemoteResource) Update(ctx context.Context, req resource.UpdateRequ
 
 	result, err := r.client.Update(ctx, state.PulpHref.ValueString(), body)
 	if err != nil {
-		resp.Diagnostics.AddError("Failed to update remote", err.Error())
+		resp.Diagnostics.AddError("Failed to update Remote", err.Error())
 		return
 	}
 

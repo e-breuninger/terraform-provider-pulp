@@ -6,7 +6,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"regexp"
 
 	"github.com/e-breuninger/terraform-provider-pulp/internal"
@@ -15,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/numberplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -85,26 +85,41 @@ func (r *pulpUserResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "The first name of this User.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "The last name of this User.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"email": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "The email address of this User.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"is_staff": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "Whether this User can log into the admin site.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"is_active": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "Whether this User account is active.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -126,27 +141,15 @@ func (r *pulpUserResource) Configure(_ context.Context, req resource.ConfigureRe
 func buildUserBody(_ context.Context, plan PulpUserModel) map[string]any {
 	body := map[string]any{
 		"username": plan.Username.ValueString(),
-		"password": nil,
 	}
 
-	if !plan.Password.IsNull() && !plan.Password.IsUnknown() {
-		body["password"] = plan.Password.ValueString()
-	}
-	if !plan.FirstName.IsNull() && !plan.FirstName.IsUnknown() {
-		body["first_name"] = plan.FirstName.ValueString()
-	}
-	if !plan.LastName.IsNull() && !plan.LastName.IsUnknown() {
-		body["last_name"] = plan.LastName.ValueString()
-	}
-	if !plan.Email.IsNull() && !plan.Email.IsUnknown() {
-		body["email"] = plan.Email.ValueString()
-	}
-	if !plan.IsStaff.IsNull() && !plan.IsStaff.IsUnknown() {
-		body["is_staff"] = plan.IsStaff.ValueBool()
-	}
-	if !plan.IsActive.IsNull() && !plan.IsActive.IsUnknown() {
-		body["is_active"] = plan.IsActive.ValueBool()
-	}
+	// password is nullable in Pulp; the rest are not.
+	internal.SetStrField(body, "password", plan.Password, true)
+	internal.SetStrField(body, "first_name", plan.FirstName, false)
+	internal.SetStrField(body, "last_name", plan.LastName, false)
+	internal.SetStrField(body, "email", plan.Email, false)
+	internal.SetBoolField(body, "is_staff", plan.IsStaff, false)
+	internal.SetBoolField(body, "is_active", plan.IsActive, false)
 
 	return body
 }
@@ -159,30 +162,14 @@ func hydrateUserModel(ctx context.Context, data map[string]any, model *PulpUserM
 	tflog.Debug(ctx, "Hydrating user model", map[string]any{
 		"data": fmt.Sprintf("%+v", data),
 	})
-	if v, ok := data["pulp_href"].(string); ok {
-		model.PulpHref = types.StringValue(v)
-	}
-	if v, ok := data["id"].(float64); ok {
-		model.ID = types.NumberValue(big.NewFloat(v))
-	}
-	if v, ok := data["username"].(string); ok {
-		model.Username = types.StringValue(v)
-	}
-	if v, ok := data["first_name"].(string); ok {
-		model.FirstName = types.StringValue(v)
-	}
-	if v, ok := data["last_name"].(string); ok {
-		model.LastName = types.StringValue(v)
-	}
-	if v, ok := data["email"].(string); ok {
-		model.Email = types.StringValue(v)
-	}
-	if v, ok := data["is_staff"].(bool); ok {
-		model.IsStaff = types.BoolValue(v)
-	}
-	if v, ok := data["is_active"].(bool); ok {
-		model.IsActive = types.BoolValue(v)
-	}
+	model.PulpHref = internal.StrOrNull(data, "pulp_href")
+	model.ID = internal.NumberOrNull(data, "id")
+	model.Username = internal.StrOrNull(data, "username")
+	model.FirstName = internal.StrOrNull(data, "first_name")
+	model.LastName = internal.StrOrNull(data, "last_name")
+	model.Email = internal.StrOrNull(data, "email")
+	model.IsStaff = internal.BoolOrNull(data, "is_staff")
+	model.IsActive = internal.BoolOrNull(data, "is_active")
 }
 
 func (r *pulpUserResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

@@ -139,7 +139,12 @@ func (p *PulpProvider) EphemeralResources(ctx context.Context) []func() ephemera
 }
 
 func (p *PulpProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		NewPulpDistributionsSource,
+		NewPulpDistributionSource,
+		NewPulpRemoteSource,
+		NewPulpRemotesSource,
+	}
 }
 
 func (p *PulpProvider) Functions(ctx context.Context) []func() function.Function {

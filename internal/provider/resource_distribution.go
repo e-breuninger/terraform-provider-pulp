@@ -16,6 +16,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -121,21 +124,33 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "The name of the Repository that should be served at the base_path.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"repository_version": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "The version of the Repository.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"allow_uploads": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "Whether to allow uploads to this Distribution.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"remote": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "The `pulp_href` of the Remote from which content should be pulled.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.String{
 					validators.PulpHrefValidator(),
 				},
@@ -144,6 +159,9 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "The `pulp_href` of the Content Guard to use for this Distribution (if supported by the content_type/plugin_name).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.String{
 					validators.PulpHrefValidator(),
 				},
@@ -159,6 +177,9 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.StringType,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.List{
 					listvalidator.ValueStringsAre(
 						validators.PulpHrefValidator(),
@@ -170,12 +191,18 @@ func (r *pulpDistributionResource) Schema(_ context.Context, _ resource.SchemaRe
 				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "If set to true, this disallows anonymous users to pull from this Distribution.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"pulp_labels": schema.MapAttribute{
 				Optional:            true,
 				Computed:            true,
 				ElementType:         types.StringType,
 				MarkdownDescription: "Key/value labels.",
+				PlanModifiers: []planmodifier.Map{
+					mapplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -214,38 +241,33 @@ func supportsFeature(contentType, pluginName string, feature string) bool {
 	return supportedFeatures[fmt.Sprintf("%s/%s", contentType, pluginName)][feature]
 }
 
-// Helper: build the body map from the plan, skipping null/unknown values.
+// Helper: build the body map from the plan, skipping unknown values and
+// only sending explicit null for fields Pulp actually allows to be null.
+//
+// Nullability of remote/content_guard varies by content_type/plugin_name in
+// Pulp (e.g. container distributions require a non-null remote/content_guard
+// while most others allow clearing them), so we conservatively treat them as
+// non-nullable here: worst case a `null` clear is silently skipped instead of
+// the apply failing with "This field may not be null."
 func buildDistributionBody(ctx context.Context, plan PulpDistributionModel) map[string]any {
 	body := map[string]any{
 		"name":      plan.Name.ValueString(),
 		"base_path": plan.BasePath.ValueString(),
 	}
 
-	if !plan.Repository.IsNull() && !plan.Repository.IsUnknown() {
-		body["repository"] = plan.Repository.ValueString()
-	}
-	if !plan.RepositoryVersion.IsNull() && !plan.RepositoryVersion.IsUnknown() {
-		body["repository_version"] = plan.RepositoryVersion.ValueString()
-	}
-	if !plan.AllowUploads.IsNull() && !plan.AllowUploads.IsUnknown() {
-		body["allow_uploads"] = plan.AllowUploads.ValueBool()
-	}
-	if !plan.Remote.IsNull() && !plan.Remote.IsUnknown() {
-		body["remote"] = plan.Remote.ValueString()
-	}
+	internal.SetStrField(body, "repository", plan.Repository, true)
+	internal.SetStrField(body, "repository_version", plan.RepositoryVersion, true)
+	// allow_uploads has a server-side default and is non-nullable in Pulp.
+	internal.SetBoolField(body, "allow_uploads", plan.AllowUploads, false)
+	internal.SetStrField(body, "remote", plan.Remote, false)
 
-	// Convert pulp_labels from types.Map to map[string]string
-	if !plan.PulpLabels.IsNull() && !plan.PulpLabels.IsUnknown() {
-		labels := make(map[string]string)
-		plan.PulpLabels.ElementsAs(ctx, &labels, false)
+	if labels := internal.LabelsToMap(ctx, plan.PulpLabels); labels != nil {
 		body["pulp_labels"] = labels
 	}
 
 	// Not every distribution has a content guard
 	if supportsFeature(plan.ContentType.ValueString(), plan.PluginName.ValueString(), "content_guard") {
-		if !plan.ContentGuard.IsNull() && !plan.ContentGuard.IsUnknown() {
-			body["content_guard"] = plan.ContentGuard.ValueString()
-		}
+		internal.SetStrField(body, "content_guard", plan.ContentGuard, false)
 	}
 
 	// Not every distribution has a distributions attribute
@@ -257,11 +279,10 @@ func buildDistributionBody(ctx context.Context, plan PulpDistributionModel) map[
 		}
 	}
 
-	// Not every distribution supports the private flag
+	// Not every distribution supports the private flag; it is non-nullable
+	// in Pulp (it defaults to unrestricted access).
 	if supportsFeature(plan.ContentType.ValueString(), plan.PluginName.ValueString(), "private") {
-		if !plan.Private.IsNull() && !plan.Private.IsUnknown() {
-			body["private"] = plan.Private.ValueBool()
-		}
+		internal.SetBoolField(body, "private", plan.Private, false)
 	}
 
 	return body
@@ -276,80 +297,19 @@ func hydrateDistributionModel(ctx context.Context, data map[string]any, model *P
 	tflog.Debug(ctx, "Hydrating distribution model", map[string]any{
 		"data": fmt.Sprintf("%+v", data),
 	})
-	if v, ok := data["pulp_href"].(string); ok {
-		model.PulpHref = types.StringValue(v)
-	}
-	if v, ok := data["name"].(string); ok {
-		model.Name = types.StringValue(v)
-	}
-	if v, ok := data["base_path"].(string); ok {
-		model.BasePath = types.StringValue(v)
-	}
-	if v, ok := data["repository"].(string); ok && v != "" {
-		model.Repository = types.StringValue(v)
-	} else {
-		model.Repository = types.StringNull()
-	}
-	if v, ok := data["repository_version"].(string); ok && v != "" {
-		model.RepositoryVersion = types.StringValue(v)
-	} else {
-		model.RepositoryVersion = types.StringNull()
-	}
-
-	if v, ok := data["allow_uploads"].(bool); ok {
-		model.AllowUploads = types.BoolValue(v)
-	} else {
-		model.AllowUploads = types.BoolNull()
-	}
-
-	if v, ok := data["remote"].(string); ok && v != "" {
-		model.Remote = types.StringValue(v)
-	} else {
-		model.Remote = types.StringNull()
-	}
-
-	if v, ok := data["content_guard"].(string); ok && v != "" {
-		model.ContentGuard = types.StringValue(v)
-	} else {
-		model.ContentGuard = types.StringNull()
-	}
-
-	if v, ok := data["namespace"].(string); ok && v != "" {
-		model.Namespace = types.StringValue(v)
-	} else {
-		model.Namespace = types.StringNull()
-	}
-
-	if _, ok := data["distributions"].([]any); ok {
-		model.Distributions = *internal.StringList(ctx, data, "distributions")
-	} else {
-		model.Distributions = types.ListNull(types.StringType)
-	}
-
-	if v, ok := data["private"].(bool); ok {
-		model.Private = types.BoolValue(v)
-	} else {
-		model.Private = types.BoolNull()
-	}
-
-	// Convert pulp_labels from map[string]any to types.Map
-	if v, ok := data["pulp_labels"].(map[string]any); ok {
-		elems := make(map[string]types.String)
-		for k, val := range v {
-			if s, ok := val.(string); ok {
-				elems[k] = types.StringValue(s)
-			}
-		}
-		// Convert to types.Map
-		labels := make(map[string]string)
-		for k, val := range v {
-			if s, ok := val.(string); ok {
-				labels[k] = s
-			}
-		}
-		mapVal, _ := types.MapValueFrom(ctx, types.StringType, labels)
-		model.PulpLabels = mapVal
-	}
+	f := hydrateDistributionFields(ctx, data)
+	model.PulpHref = f.PulpHref
+	model.Name = f.Name
+	model.BasePath = f.BasePath
+	model.Repository = f.Repository
+	model.RepositoryVersion = f.RepositoryVersion
+	model.AllowUploads = f.AllowUploads
+	model.Remote = f.Remote
+	model.ContentGuard = f.ContentGuard
+	model.Namespace = f.Namespace
+	model.Private = f.Private
+	model.Distributions = f.Distributions
+	model.PulpLabels = f.PulpLabels
 }
 
 func (r *pulpDistributionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
