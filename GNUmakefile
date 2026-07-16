@@ -17,7 +17,7 @@ fmt:
 	gofmt -s -w -e .
 
 docker:
-	cd docker && docker compose up -d
+	cd docker && docker compose up -d --quiet-pull
 
 dockerdown:
 	cd docker && docker compose down --volumes
