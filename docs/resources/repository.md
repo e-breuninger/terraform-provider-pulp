@@ -17,7 +17,7 @@ Manages a Pulp Repository for any content type.
 
 ### Required
 
-- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `ansible/ansible`, `container/container`, `core/openpgp_keyring`, `deb/apt`, `file/file`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/python`, `rpm/rpm`.
+- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `ansible/ansible`, `container/container`, `core/openpgp_keyring`, `deb/apt`, `file/file`, `gem/gem`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/python`, `rpm/rpm`.
 - `description` (String) A description for this Repository.
 - `name` (String) A unique name for this Repository.
 - `plugin_name` (String) Pulp plugin sub-type. See `content_type` for the supported combinations.

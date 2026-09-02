@@ -4,21 +4,24 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"os"
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
-// apiSchemaPath is a vendored copy of Pulp's OpenAPI schema:
-//
-//	curl -o 'Pulp 3 API.json' http://localhost:8080/pulp/api/v3/docs/api.json
-//
-// It is large, so the tests that read it skip when it is missing. Refresh it
-// when targeting a new Pulp version.
-const apiSchemaPath = "../../Pulp 3 API.json"
+// apiSchemaPath is where Pulp serves its own OpenAPI schema. The conformance
+// tests read it from the Pulp the acceptance tests run against, so the feature
+// maps are always checked against the version actually in use rather than a
+// copy that goes stale in the repository. They skip when no Pulp is reachable.
+const apiSchemaPath = "/pulp/api/v3/docs/api.json"
 
 // openAPI is the slice of the schema these tests need.
 type openAPI struct {
@@ -61,22 +64,51 @@ func (a *openAPI) deref(s jsonSchema) jsonSchema {
 	return s
 }
 
+// The schema is a few megabytes, so it is fetched once per test binary.
+var (
+	apiSchemaOnce sync.Once
+	apiSchema     *openAPI
+	apiSchemaErr  error
+)
+
 func loadAPISchema(t *testing.T) *openAPI {
 	t.Helper()
 
-	raw, err := os.ReadFile(apiSchemaPath)
+	apiSchemaOnce.Do(func() { apiSchema, apiSchemaErr = fetchAPISchema() })
+	if apiSchemaErr != nil {
+		t.Skipf("no Pulp to read the API schema from: %v", apiSchemaErr)
+	}
+	return apiSchema
+}
+
+func fetchAPISchema() (*openAPI, error) {
+	serverURL := os.Getenv("PULP_SERVER_URL")
+	if serverURL == "" {
+		serverURL = defaultTestServerURL
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, serverURL+apiSchemaPath, nil)
 	if err != nil {
-		if os.IsNotExist(err) {
-			t.Skipf("%s is not present; see the comment on apiSchemaPath", apiSchemaPath)
-		}
-		t.Fatalf("reading %s: %v", apiSchemaPath, err)
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GET %s: status %d", apiSchemaPath, resp.StatusCode)
 	}
 
 	var api openAPI
-	if err := json.Unmarshal(raw, &api); err != nil {
-		t.Fatalf("parsing %s: %v", apiSchemaPath, err)
+	if err := json.NewDecoder(resp.Body).Decode(&api); err != nil {
+		return nil, fmt.Errorf("decoding the API schema: %w", err)
 	}
-	return &api
+	return &api, nil
 }
 
 // variantFields reports, per variant, the fields its POST body accepts and
