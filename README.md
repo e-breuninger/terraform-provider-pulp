@@ -76,6 +76,11 @@ make release           # version, CHANGELOG.md, commit and tag
 git push --follow-tags # this is what starts the build
 ```
 
+The version comes from the increment the commits imply, applied to the highest
+tag in the repository. Taking the highest tag rather than the highest one
+reachable from `HEAD` means a release can never reuse a version, even if an
+earlier tag was stranded by a rebase.
+
 Run this on `master`, after merging. Commitizen tags the commit it writes
 `CHANGELOG.md` into, so a release cut from a feature branch leaves the tag
 pointing at a commit `master` never gets.
