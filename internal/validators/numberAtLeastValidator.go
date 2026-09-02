@@ -13,14 +13,14 @@ import (
 
 // NumberAtLeast rejects numbers below min. terraform-plugin-framework-validators
 // has no numbervalidator equivalent.
-func NumberAtLeast(min int64) validator.Number {
-	return numberAtLeastValidator{min: big.NewFloat(float64(min))}
+func NumberAtLeast(minimum int64) validator.Number {
+	return numberAtLeastValidator{minimum: big.NewFloat(float64(minimum))}
 }
 
-type numberAtLeastValidator struct{ min *big.Float }
+type numberAtLeastValidator struct{ minimum *big.Float }
 
 func (v numberAtLeastValidator) Description(context.Context) string {
-	return fmt.Sprintf("must be at least %s", v.min.Text('f', -1))
+	return fmt.Sprintf("must be at least %s", v.minimum.Text('f', -1))
 }
 
 func (v numberAtLeastValidator) MarkdownDescription(ctx context.Context) string {
@@ -35,7 +35,7 @@ func (v numberAtLeastValidator) ValidateNumber(
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
-	if value := req.ConfigValue.ValueBigFloat(); value.Cmp(v.min) < 0 {
+	if value := req.ConfigValue.ValueBigFloat(); value.Cmp(v.minimum) < 0 {
 		resp.Diagnostics.AddAttributeError(req.Path, "Invalid number value",
 			fmt.Sprintf("Value %s %s.", value.Text('f', -1), v.Description(ctx)))
 	}
