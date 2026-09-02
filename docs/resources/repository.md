@@ -17,15 +17,15 @@ Manages a Pulp Repository for any content type.
 
 ### Required
 
-- `content_type` (String) Content plugin type.
+- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `ansible/ansible`, `container/container`, `core/openpgp_keyring`, `deb/apt`, `file/file`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/python`, `rpm/rpm`.
 - `description` (String) A description for this Repository.
 - `name` (String) A unique name for this Repository.
-- `plugin_name` (String) Plugin sub-type if different from content_type.
+- `plugin_name` (String) Pulp plugin sub-type. See `content_type` for the supported combinations.
 
 ### Optional
 
 - `pulp_labels` (Map of String) Key/value labels.
-- `remote` (String) `pulp_href` of the Remote.
+- `remote` (String) The `pulp_href` of the Remote this Repository syncs from.
 
 ### Read-Only
 

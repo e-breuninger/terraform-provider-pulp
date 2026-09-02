@@ -7,9 +7,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
-	internal "github.com/e-breuninger/terraform-provider-pulp/internal"
+	"github.com/e-breuninger/terraform-provider-pulp/internal"
 	"github.com/e-breuninger/terraform-provider-pulp/internal/client"
 	"github.com/e-breuninger/terraform-provider-pulp/internal/modifiers"
 
@@ -90,16 +89,7 @@ func (r *pulpObjectRoleResource) Schema(_ context.Context, _ resource.SchemaRequ
 }
 
 func (r *pulpObjectRoleResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-	c, ok := req.ProviderData.(*client.PulpClient)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected provider data type",
-			fmt.Sprintf("Expected *client.PulpClient, got %T", req.ProviderData))
-		return
-	}
-	r.client = c
+	r.client = configureClient(req, resp)
 }
 
 // readRoleAssignment fetches current users/groups for a given role on an Object.
@@ -147,57 +137,46 @@ func (r *pulpObjectRoleResource) readRoleAssignment(
 	return users, groups, found, nil
 }
 
-func (r *pulpObjectRoleResource) addRole(
-	ctx context.Context, pulpHref, role string, users, groups []string,
+// callRoleAction posts to the add_role or remove_role action of an object.
+// Both take the same body and are no-ops when there is nothing to change.
+func (r *pulpObjectRoleResource) callRoleAction(
+	ctx context.Context, action, pulpHref, role string, users, groups []string,
 ) error {
 	if len(users) == 0 && len(groups) == 0 {
 		return nil
 	}
+	// Pulp requires both keys to be present, even when empty.
 	body := map[string]any{
 		"role":   role,
-		"users":  users,
-		"groups": groups,
+		"users":  orEmpty(users),
+		"groups": orEmpty(groups),
 	}
-	if users == nil {
-		body["users"] = []string{}
+	tflog.Debug(ctx, "Calling object role action", map[string]any{
+		"action": action, "href": pulpHref, "body": body,
+	})
+	resp, statusCode, err := r.client.CallHrefAction(ctx, pulpHref, action, body)
+	if err != nil {
+		return err
 	}
-	if groups == nil {
-		body["groups"] = []string{}
-	}
-	tflog.Error(ctx, "Adding object role", map[string]any{"href": pulpHref, "body": body})
-	resp, statusCode, err := r.client.CallHrefAction(ctx, pulpHref, "add_role", body)
-	if (statusCode != http.StatusOK && statusCode != http.StatusCreated) || err != nil {
-		return fmt.Errorf("add_role failed with status %d\nbody: %v\nerror: %v\nresponse: %v", statusCode, body, err, resp)
+	if statusCode != http.StatusOK && statusCode != http.StatusCreated {
+		return fmt.Errorf("%s failed with status %d\nbody: %v\nresponse: %v", action, statusCode, body, resp)
 	}
 	return nil
 }
 
-func (r *pulpObjectRoleResource) removeRole(
-	ctx context.Context, pulpHref, role string, users, groups []string,
-) error {
-	if len(users) == 0 && len(groups) == 0 {
-		return nil
+func orEmpty(in []string) []string {
+	if in == nil {
+		return []string{}
 	}
-	body := map[string]any{
-		"role":   role,
-		"users":  users,
-		"groups": groups,
-	}
-	if users == nil {
-		body["users"] = []string{}
-	}
-	if groups == nil {
-		body["groups"] = []string{}
-	}
-	tflog.Error(ctx, "Removing object role", map[string]any{"href": pulpHref, "body": body})
-	_, statusCode, err := r.client.CallHrefAction(ctx, pulpHref, "remove_role", body)
-	if err != nil {
-		return err
-	}
-	if statusCode != http.StatusCreated {
-		return fmt.Errorf("remove_role failed with status %d", statusCode)
-	}
-	return nil
+	return in
+}
+
+func (r *pulpObjectRoleResource) addRole(ctx context.Context, pulpHref, role string, users, groups []string) error {
+	return r.callRoleAction(ctx, "add_role", pulpHref, role, users, groups)
+}
+
+func (r *pulpObjectRoleResource) removeRole(ctx context.Context, pulpHref, role string, users, groups []string) error {
+	return r.callRoleAction(ctx, "remove_role", pulpHref, role, users, groups)
 }
 
 func (r *pulpObjectRoleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -371,11 +350,11 @@ func (r *pulpObjectRoleResource) Delete(ctx context.Context, req resource.Delete
 }
 
 func (r *pulpObjectRoleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, "|", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		resp.Diagnostics.AddError("Invalid composite ID", fmt.Sprintf("Composite ID is %q, expected `<pulp_href>|<role>`", req.ID))
+	pulpHref, role, err := internal.SplitCompositeID(req.ID)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid composite ID", err.Error())
 		return
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("pulp_href"), parts[0])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("role"), parts[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("pulp_href"), pulpHref)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("role"), role)...)
 }

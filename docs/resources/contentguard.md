@@ -3,12 +3,12 @@
 page_title: "pulp_contentguard Resource - pulp"
 subcategory: ""
 description: |-
-  Manages a Pulp ContentGuard for any content type.
+  Manages a Pulp ContentGuard.
 ---
 
 # pulp_contentguard (Resource)
 
-Manages a Pulp ContentGuard for any content type.
+Manages a Pulp ContentGuard.
 
 ## Example Usage
 
@@ -25,24 +25,24 @@ resource "pulp_contentguard" "distribution" {
 
 ### Required
 
-- `content_type` (String) Content plugin type. Either `certguard` or `core`.
+- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `certguard/rhsm`, `certguard/x509`, `core/composite`, `core/content_redirect`, `core/header`, `core/rbac`.
 - `name` (String) A unique name for this ContentGuard.
-- `plugin_name` (String) Plugin sub-type. One of `rhsm`, `x509`, `composite`, `content_redirect`, `header` or `rbac`
+- `plugin_name` (String) Pulp plugin sub-type. See `content_type` for the supported combinations.
 
 ### Optional
 
-- `ca_certificate` (String) `ca_certificate` for X509 or Rhsm. Supported only by Contentguards: X509 or Rhsm
+- `ca_certificate` (String) The CA certificate client certificates are validated against. Only supported by: `certguard/rhsm`, `certguard/x509`.
 - `description` (String) A description for this ContentGuard.
-- `guards` (List of String) `guards` for Composite. Supported only by Contentguards: Composite.
-- `header_name` (String) `header_name` for Header. Supported only by Contentguards: Header.
-- `header_value` (String) `header_value` for Header. Supported only by Contentguards: Header.
-- `jq_filter` (String) `jq_filter` for Header. Supported only by Contentguards: Header.
+- `guards` (List of String) The `pulp_href`s of the ContentGuards this composite ContentGuard combines. Only supported by: `core/composite`.
+- `header_name` (String) The name of the header to check. Only supported by: `core/header`.
+- `header_value` (String) The value the header must carry. Only supported by: `core/header`.
+- `jq_filter` (String) A jq filter applied to the decoded header value. Only supported by: `core/header`.
 
 ### Read-Only
 
-- `groups` (Attributes List) `groups` allowed to have role-based access. Supported only by Contentguards: Rbac. (see [below for nested schema](#nestedatt--groups))
+- `groups` (Attributes List) The groups granted role-based access. Only rbac ContentGuards report these. (see [below for nested schema](#nestedatt--groups))
 - `pulp_href` (String) The `pulp_href` (used as the resource identifier).
-- `users` (Attributes List) `users` allowed to have role-based access. Supported only by Contentguards: Rbac. (see [below for nested schema](#nestedatt--users))
+- `users` (Attributes List) The users granted role-based access. Only rbac ContentGuards report these. (see [below for nested schema](#nestedatt--users))
 
 <a id="nestedatt--groups"></a>
 ### Nested Schema for `groups`

@@ -1,7 +1,7 @@
 // Copyright E. Breuninger GmbH & Co 2026
 // SPDX-License-Identifier: MPL-2.0
 
-package validator
+package validators
 
 import (
 	"context"

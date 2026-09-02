@@ -3,12 +3,12 @@
 page_title: "pulp_group Resource - pulp"
 subcategory: ""
 description: |-
-  Manages a Pulp Group for any content type.
+  Manages a Pulp Group.
 ---
 
 # pulp_group (Resource)
 
-Manages a Pulp Group for any content type.
+Manages a Pulp Group.
 
 
 

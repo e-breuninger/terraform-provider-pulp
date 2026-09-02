@@ -3,12 +3,12 @@
 page_title: "pulp_remote Resource - pulp"
 subcategory: ""
 description: |-
-  Manages a Pulp remote for any content type.
+  Manages a Pulp Remote for any content type.
 ---
 
 # pulp_remote (Resource)
 
-Manages a Pulp remote for any content type.
+Manages a Pulp Remote for any content type.
 
 ## Example Usage
 
@@ -47,15 +47,15 @@ resource "pulp_remote" "maven" {
 
 ### Required
 
-- `content_type` (String) Content plugin type.
-- `name` (String) A unique name for this remote.
-- `plugin_name` (String) Plugin sub-type if different from content_type.
+- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `ansible/collection`, `ansible/git`, `ansible/role`, `container/container`, `container/pull-through`, `deb/apt`, `file/file`, `file/git`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/python`, `rpm/rpm`, `rpm/uln`.
+- `name` (String) A unique name for this Remote.
+- `plugin_name` (String) Pulp plugin sub-type. See `content_type` for the supported combinations.
 - `url` (String) The URL of an external content source.
 
 ### Optional
 
 - `password` (String, Sensitive) Password for authentication when syncing.
-- `policy` (String) Download policy: `immediate`, `on_demand`, or `streamed`.
+- `policy` (String) Download policy: `immediate`, `on_demand`, or `streamed`. Only supported by: `ansible/collection`, `ansible/role`, `container/container`, `container/pull-through`, `deb/apt`, `file/file`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/python`, `rpm/rpm`, `rpm/uln`.
 - `pulp_labels` (Map of String) Key/value labels.
 - `tls_validation` (Boolean) Whether TLS peer validation must be performed.
 - `username` (String) Username for authentication when syncing.
