@@ -16,8 +16,12 @@ generate:
 fmt:
 	gofmt -s -w -e .
 
+# Layer-by-layer pull progress is a wall of noise in a CI log, but worth
+# keeping locally for a pull this size. GitHub Actions sets CI.
+COMPOSE_UP_FLAGS := $(if $(CI),--quiet-pull)
+
 docker:
-	cd docker && docker compose up -d
+	cd docker && docker compose up -d $(COMPOSE_UP_FLAGS)
 
 dockerdown:
 	cd docker && docker compose down --volumes
