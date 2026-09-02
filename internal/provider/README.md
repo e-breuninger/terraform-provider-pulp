@@ -110,9 +110,14 @@ variants all follow.
 ## Tests
 
 `TestFieldTablesMatchModels` fails if a table and its model disagree by name or
-type. `TestFeatureSetsMatchAPISchema` compares every `featureSet` against a
-vendored copy of Pulp's OpenAPI schema, so a Pulp upgrade that adds or drops a
-plugin fails a test instead of surfacing as a 404. Both skip gracefully when
-`Pulp 3 API.json` is absent.
+type.
 
-Acceptance tests need a running Pulp; see the repo `GNUmakefile`.
+`TestFeatureSetsMatchAPISchema` compares every `featureSet` against Pulp's own
+OpenAPI schema, read from the Pulp the acceptance tests run against
+(`{PULP_SERVER_URL}/pulp/api/v3/docs/api.json`, default `localhost:8080`). It
+is fetched rather than vendored so the maps are always checked against the
+version actually in use: a Pulp that gains or drops a plugin fails a test
+instead of surfacing as a 404 much later. The schema-reading tests skip when no
+Pulp is reachable, so `go test` still works without the stack.
+
+Acceptance tests need a running Pulp too; `make testacc` brings one up.

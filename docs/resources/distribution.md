@@ -48,7 +48,7 @@ resource "pulp_distribution" "docker" {
 ### Required
 
 - `base_path` (String) The base_path for this Distribution.
-- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `ansible/ansible`, `container/container`, `container/pull-through`, `core/openpgp`, `deb/apt`, `file/file`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/pypi`, `rpm/rpm`.
+- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `ansible/ansible`, `container/container`, `container/pull-through`, `core/openpgp`, `deb/apt`, `file/file`, `gem/gem`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/pypi`, `rpm/rpm`.
 - `name` (String) A unique name for this Distribution.
 - `plugin_name` (String) Pulp plugin sub-type. See `content_type` for the supported combinations.
 
@@ -59,7 +59,7 @@ resource "pulp_distribution" "docker" {
 - `distributions` (List of String) The `pulp_href`s of the Distributions served through this pull-through Distribution. Only supported by: `container/pull-through`.
 - `private` (Boolean) If true, anonymous users may not pull from this Distribution. Only supported by: `container/container`, `container/pull-through`.
 - `pulp_labels` (Map of String) Key/value labels.
-- `remote` (String) The `pulp_href` of the Remote from which content should be pulled on demand. Only supported by: `container/pull-through`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `python/pypi`.
+- `remote` (String) The `pulp_href` of the Remote from which content should be pulled on demand. Only supported by: `container/pull-through`, `gem/gem`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `python/pypi`.
 - `repository` (String) The `pulp_href` of the Repository that should be served at the base_path.
 - `repository_version` (String) The `pulp_href` of the Repository version to serve.
 

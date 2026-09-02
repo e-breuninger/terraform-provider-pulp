@@ -13,11 +13,15 @@ import (
 )
 
 const (
+	// defaultTestServerURL is the Pulp the acceptance tests and the API
+	// schema conformance tests run against. Override with PULP_SERVER_URL.
+	defaultTestServerURL = "http://localhost:8080"
+
 	providerConfig = `
 provider "pulp" {
   username   = "admin"
   password   = "admin"
-  server_url = "http://localhost:8080"
+  server_url = "` + defaultTestServerURL + `"
 }
 `
 )
@@ -37,7 +41,7 @@ var (
 // those attributes were Required: Terraform rejected the config before
 // Configure ever ran.
 func TestProviderFromEnvironment(t *testing.T) {
-	t.Setenv("PULP_SERVER_URL", "http://localhost:8080")
+	t.Setenv("PULP_SERVER_URL", defaultTestServerURL)
 	t.Setenv("PULP_USERNAME", "admin")
 	t.Setenv("PULP_PASSWORD", "admin")
 
