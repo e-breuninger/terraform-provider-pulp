@@ -1,9 +1,8 @@
 # Terraform Provider release workflow.
 name: Release
 
-# Builds and publishes a release when a "v*" tag is pushed. Cut the tag with
-# `cz bump`, which derives the version from the Conventional Commits since the
-# last one; see the README.
+# This GitHub action creates a release when a tag that matches the pattern
+# "v*" (e.g. v0.1.0) is created.
 on:
   push:
     tags:
