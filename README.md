@@ -83,7 +83,9 @@ earlier tag was stranded by a rebase.
 
 Run this on `master`, after merging. Commitizen tags the commit it writes
 `CHANGELOG.md` into, so a release cut from a feature branch leaves the tag
-pointing at a commit `master` never gets.
+pointing at a commit `master` never gets. `make release` refuses to run
+elsewhere, and the `Release` workflow refuses to publish a tag that is not on
+`master`.
 
 Pushing the tag starts the `Release` workflow, which builds the provider and
 publishes it with release notes grouped by change type.
