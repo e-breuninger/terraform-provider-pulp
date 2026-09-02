@@ -3,12 +3,12 @@
 page_title: "pulp_user_role Resource - pulp"
 subcategory: ""
 description: |-
-  Manages a Pulp UserRole.
+  Assigns a Pulp Role to a User. Pulp has no way to modify an existing assignment, so every change replaces it.
 ---
 
 # pulp_user_role (Resource)
 
-Manages a Pulp UserRole.
+Assigns a Pulp Role to a User. Pulp has no way to modify an existing assignment, so every change replaces it.
 
 ## Example Usage
 
@@ -40,14 +40,14 @@ resource "pulp_user_role" "breuninger_filerepository" {
 
 ### Required
 
-- `role` (String) The role to assign to the user.
-- `user_id` (Number) The user that gets this UserRole.
+- `role` (String) The Role to assign to the User.
+- `user_id` (Number) The ID of the User that gets this Role.
 
 ### Optional
 
-- `content_object` (String) The href of the object this Role applies to.
-- `content_object_prn` (String) The PRN of the content object for which role permissions should be asserted. If set to 'null', permissions will act on either domain or model-level.
-- `domain` (String) Domain this Role should be applied on, mutually exclusive with content_object.
+- `content_object` (String) The `pulp_href` of the object this Role applies to. Leave unset to grant the Role at domain or model level.
+- `content_object_prn` (String) The PRN of the object this Role applies to. Leave unset to grant the Role at domain or model level.
+- `domain` (String) The domain this Role applies to. Mutually exclusive with `content_object`.
 
 ### Read-Only
 

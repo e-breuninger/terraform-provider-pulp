@@ -18,10 +18,10 @@ Manages a Pulp Role.
 ### Required
 
 - `description` (String) The description for this Role.
-- `name` (String) A unique rolename for this Role.
-- `permissions` (Set of String) The list of permissions for this Role.
+- `name` (String) A unique name for this Role.
+- `permissions` (Set of String) The permissions granted by this Role.
 
 ### Read-Only
 
-- `locked` (Boolean) Whether this Role is locked.
+- `locked` (Boolean) Whether this Role is built into Pulp and cannot be changed.
 - `pulp_href` (String) The `pulp_href` (used as the resource identifier).

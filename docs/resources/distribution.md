@@ -48,22 +48,22 @@ resource "pulp_distribution" "docker" {
 ### Required
 
 - `base_path` (String) The base_path for this Distribution.
-- `content_type` (String) Content plugin type.
+- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `ansible/ansible`, `container/container`, `container/pull-through`, `core/openpgp`, `deb/apt`, `file/file`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/pypi`, `rpm/rpm`.
 - `name` (String) A unique name for this Distribution.
-- `plugin_name` (String) Plugin sub-type if different from content_type.
+- `plugin_name` (String) Pulp plugin sub-type. See `content_type` for the supported combinations.
 
 ### Optional
 
-- `allow_uploads` (Boolean) Whether to allow uploads to this Distribution.
-- `content_guard` (String) The `pulp_href` of the Content Guard to use for this Distribution (if supported by the content_type/plugin_name).
-- `distributions` (List of String) List of Distributions that use this Distribution as a remote (if supported by the content_type/plugin_name).
-- `private` (Boolean) If set to true, this disallows anonymous users to pull from this Distribution.
+- `allow_uploads` (Boolean) Whether to allow uploads to this Distribution. Only supported by: `python/pypi`.
+- `content_guard` (String) The `pulp_href` of the Content Guard to use for this Distribution.
+- `distributions` (List of String) The `pulp_href`s of the Distributions served through this pull-through Distribution. Only supported by: `container/pull-through`.
+- `private` (Boolean) If true, anonymous users may not pull from this Distribution. Only supported by: `container/container`, `container/pull-through`.
 - `pulp_labels` (Map of String) Key/value labels.
-- `remote` (String) The `pulp_href` of the Remote from which content should be pulled.
-- `repository` (String) The name of the Repository that should be served at the base_path.
-- `repository_version` (String) The version of the Repository.
+- `remote` (String) The `pulp_href` of the Remote from which content should be pulled on demand. Only supported by: `container/pull-through`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `python/pypi`.
+- `repository` (String) The `pulp_href` of the Repository that should be served at the base_path.
+- `repository_version` (String) The `pulp_href` of the Repository version to serve.
 
 ### Read-Only
 
-- `namespace` (String) The namespace of this Distribution (if supported by the content_type/plugin_name).
+- `namespace` (String) The namespace of this Distribution. Only container Distributions have one. Only supported by: `container/container`, `container/pull-through`.
 - `pulp_href` (String) The `pulp_href` (used as the resource identifier).

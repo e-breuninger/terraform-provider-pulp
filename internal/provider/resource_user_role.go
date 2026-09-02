@@ -5,31 +5,14 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"regexp"
 
-	"github.com/e-breuninger/terraform-provider-pulp/internal"
 	"github.com/e-breuninger/terraform-provider-pulp/internal/client"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
-
-var _ resource.Resource = &pulpUserRoleResource{}
-var _ resource.ResourceWithImportState = &pulpUserRoleResource{}
-
-func NewPulpUserRoleResource() resource.Resource {
-	return &pulpUserRoleResource{}
-}
-
-type pulpUserRoleResource struct {
-	client *client.PulpClient
-}
 
 type PulpUserRoleModel struct {
 	PulpHref         types.String `tfsdk:"pulp_href"`
@@ -40,210 +23,81 @@ type PulpUserRoleModel struct {
 	Domain           types.String `tfsdk:"domain"`
 }
 
-func (r *pulpUserRoleResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_user_role"
+type pulpUserRoleResource struct {
+	pulpResource[PulpUserRoleModel]
 }
 
-func (r *pulpUserRoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manages a Pulp UserRole.",
-		Attributes: map[string]schema.Attribute{
-			"pulp_href": schema.StringAttribute{
-				Computed:            true,
-				MarkdownDescription: "The `pulp_href` (used as the resource identifier).",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"user_id": schema.NumberAttribute{
-				Required:            true,
-				MarkdownDescription: "The user that gets this UserRole.",
-			},
-			"role": schema.StringAttribute{
-				Required:            true,
-				MarkdownDescription: "The role to assign to the user.",
-			},
-			"content_object": schema.StringAttribute{
-				Optional:            true,
-				MarkdownDescription: "The href of the object this Role applies to.",
-			},
-			"content_object_prn": schema.StringAttribute{
-				Optional: true,
-				MarkdownDescription: "The PRN of the content object for which role permissions should be asserted. " +
-					"If set to 'null', permissions will act on either domain or model-level.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"domain": schema.StringAttribute{
-				Optional:            true,
-				MarkdownDescription: "Domain this Role should be applied on, mutually exclusive with content_object.",
-			},
-		},
-	}
-}
-
-func (r *pulpUserRoleResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	if req.ProviderData == nil {
-		return
-	}
-	c, ok := req.ProviderData.(*client.PulpClient)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected provider data type",
-			fmt.Sprintf("Expected *client.PulpClient, got %T", req.ProviderData))
-		return
-	}
-	r.client = c
-}
-
-func buildUserRoleBody(_ context.Context, plan PulpUserRoleModel) map[string]any {
-	body := map[string]any{
-		"role":               plan.Role.ValueString(),
-		"content_object":     nil,
-		"content_object_prn": nil,
-	}
-
-	if !plan.ContentObject.IsNull() && !plan.ContentObject.IsUnknown() {
-		body["content_object"] = plan.ContentObject.ValueString()
-	}
-	if !plan.ContentObjectPrn.IsNull() && !plan.ContentObjectPrn.IsUnknown() {
-		body["content_object_prn"] = plan.ContentObjectPrn.ValueString()
-	}
-	if !plan.Domain.IsNull() && !plan.Domain.IsUnknown() {
-		body["domain"] = plan.Domain.ValueString()
-	}
-
-	return body
-}
-
-func (r *pulpUserRoleResource) resourcePath(plan PulpUserRoleModel) string {
-	return client.BuildResourcePath("users", plan.UserID.String(), "roles")
-}
-
+// userRoleHrefRegex pulls the user ID back out of the href Pulp returns,
+// e.g. /pulp/api/v3/users/3/roles/<uuid>/.
 var userRoleHrefRegex = regexp.MustCompile(`/users/(\d+)/roles/`)
 
-func hydrateUserRoleModel(ctx context.Context, data map[string]any, model *PulpUserRoleModel) {
-	tflog.Debug(ctx, "Hydrating user_role model", map[string]any{
-		"data": fmt.Sprintf("%+v", data),
-	})
-	if v, ok := data["pulp_href"].(string); ok {
-		model.PulpHref = types.StringValue(v)
+func NewPulpUserRoleResource() resource.Resource {
+	return &pulpUserRoleResource{pulpResource[PulpUserRoleModel]{
+		typeName: "user_role",
+		label:    "UserRole",
+		description: "Assigns a Pulp Role to a User. Pulp has no way to modify an existing " +
+			"assignment, so every change replaces it.",
+		collection: "users",
 
-		// Extract user_id from the href
-		if matches := userRoleHrefRegex.FindStringSubmatch(v); len(matches) == 2 {
+		// A UserRole is nested under the user it belongs to rather than
+		// living in a collection of its own.
+		resourcePath: func(model *PulpUserRoleModel) string {
+			return client.BuildResourcePath("users", userIDPath(model.UserID), "roles")
+		},
+
+		// user_id is part of the URL, not the body, and Pulp does not report
+		// it as a field — but its href encodes it, which is what makes import
+		// work.
+		afterHydrate: func(_ context.Context, data map[string]any, model *PulpUserRoleModel) {
+			href, _ := data["pulp_href"].(string)
+			matches := userRoleHrefRegex.FindStringSubmatch(href)
+			if len(matches) != 2 {
+				return
+			}
 			if n, ok := new(big.Float).SetString(matches[1]); ok {
 				model.UserID = types.NumberValue(n)
 			}
-		}
-	}
-	if v, ok := data["role"].(string); ok {
-		model.Role = types.StringValue(v)
-	}
-	if v, ok := data["content_object"].(string); ok && v != "" {
-		model.ContentObject = types.StringValue(v)
-	} else {
-		model.ContentObject = types.StringNull()
-	}
-	if v, ok := data["content_object_prn"].(string); ok && v != "" {
-		model.ContentObjectPrn = types.StringValue(v)
-	} else {
-		model.ContentObjectPrn = types.StringNull()
-	}
+		},
 
-	if v, ok := data["domain"].(string); ok {
-		model.Domain = types.StringValue(v)
-	}
+		// Pulp offers no PATCH for a role assignment: the only way to change
+		// one is to drop it and add another. Requiring replacement on every
+		// attribute lets Terraform do exactly that, in the right order and
+		// visibly in the plan, instead of the resource silently deleting and
+		// re-creating itself during an update.
+		fields: []field{
+			hrefField(),
+			{
+				Name: "user_id", Kind: fieldNumber,
+				Required: true, RequiresReplace: true, Local: true,
+				Description: "The ID of the User that gets this Role.",
+			},
+			{
+				Name: "role", Kind: fieldString, Required: true, RequiresReplace: true,
+				Description: "The Role to assign to the User.",
+			},
+			{
+				Name: "content_object", Kind: fieldString,
+				Optional: true, RequiresReplace: true, Nullable: true, EmptyIsNull: true,
+				Description: "The `pulp_href` of the object this Role applies to. Leave unset to grant the Role at domain or model level.",
+			},
+			{
+				Name: "content_object_prn", Kind: fieldString,
+				Optional: true, RequiresReplace: true, Nullable: true, EmptyIsNull: true,
+				Description: "The PRN of the object this Role applies to. Leave unset to grant the Role at domain or model level.",
+			},
+			{
+				Name: "domain", Kind: fieldString,
+				Optional: true, RequiresReplace: true,
+				Description: "The domain this Role applies to. Mutually exclusive with `content_object`.",
+			},
+		},
+	}}
 }
 
-func (r *pulpUserRoleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan PulpUserRoleModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	if resp.Diagnostics.HasError() {
-		return
+// userIDPath renders a user ID for use in a URL path.
+func userIDPath(id types.Number) string {
+	if id.IsNull() || id.IsUnknown() {
+		return ""
 	}
-
-	body := buildUserRoleBody(ctx, plan)
-	resPath := r.resourcePath(plan)
-
-	result, err := r.client.Create(ctx, resPath, body)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to create UserRole", err.Error())
-		return
-	}
-
-	hydrateUserRoleModel(ctx, result, &plan)
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
-}
-
-func (r *pulpUserRoleResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state PulpUserRoleModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	result, err := r.client.ReadByHref(ctx, state.PulpHref.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to read UserRole", err.Error())
-		return
-	}
-	if result == nil {
-		resp.State.RemoveResource(ctx)
-		return
-	}
-
-	hydrateUserRoleModel(ctx, result, &state)
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
-}
-
-// Update patches the UserRole by Deleting and Re-creating the UserRole.
-func (r *pulpUserRoleResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan PulpUserRoleModel
-	var state PulpUserRoleModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Delete the UserRole
-	if err := r.client.Delete(ctx, state.PulpHref.ValueString()); err != nil {
-		resp.Diagnostics.AddError("Failed to delete old UserRole during update", err.Error())
-		return
-	}
-
-	// Create a new UserRole
-	body := buildUserRoleBody(ctx, plan)
-	resPath := r.resourcePath(plan)
-
-	result, err := r.client.Create(ctx, resPath, body)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Failed to create new UserRole during update",
-			fmt.Sprintf("The old UserRole was deleted but the new one could not be created. "+
-				"You may need to re-import or recreate the resource. Error: %s", err.Error()),
-		)
-		return
-	}
-
-	hydrateUserRoleModel(ctx, result, &plan)
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
-}
-
-func (r *pulpUserRoleResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state PulpUserRoleModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if err := r.client.Delete(ctx, state.PulpHref.ValueString()); err != nil {
-		resp.Diagnostics.AddError("Failed to delete UserRole", err.Error())
-		return
-	}
-}
-
-func (r *pulpUserRoleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	internal.ImportState(ctx, req, resp)
+	return id.ValueBigFloat().Text('f', -1)
 }
