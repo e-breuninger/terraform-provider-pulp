@@ -17,6 +17,14 @@ updates:
     directory: "/tools"
     schedule:
       interval: "daily"
+  # Maintain the Pulp image the acceptance tests run against
+  - package-ecosystem: "docker-compose"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Etc/UTC"
   - package-ecosystem: "github-actions"
     directory: "/"
     groups:
