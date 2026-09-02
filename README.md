@@ -53,6 +53,46 @@ cd terraform-provider-pulp
 go install
 ```
 
+## Commit Messages And Releases
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
+This is not a style preference: the release is derived from them.
+
+Install the hooks once, so a malformed message is caught before it is written:
+
+```bash
+pre-commit install
+```
+
+Pull requests are checked in CI as well, since a local hook can be skipped and
+a fork never ran it.
+
+Releases are cut deliberately, not on every push. Nothing in CI bumps the
+version or writes `CHANGELOG.md`:
+
+```bash
+make release-dry-run   # what would the next version be?
+make release           # version, CHANGELOG.md, commit and tag
+git push --follow-tags # this is what starts the build
+```
+
+Commitizen derives the version from the commits since the last tag, so the
+types below decide it. Pushing the tag starts the `Release` workflow, which
+builds the provider and publishes it with release notes grouped by change
+type.
+
+| commit type                  | effect        |
+| ---------------------------- | ------------- |
+| `feat:`                      | minor release |
+| `fix:`, `perf:`, `refactor:` | patch release |
+| `!` or `BREAKING CHANGE:`    | major release |
+| everything else              | no release    |
+
+`make release` reports that nothing warrants a release when only types in the
+last row have landed. Use
+`ci:` or `build:` for pipeline and test-harness changes: `fix:` would claim a
+provider bug was fixed and bump the version for a change users never see.
+
 ## Contributing
 
 This Provider focuses on the most common use cases for Pulp. We focus on Pull-Through Caches for Maven, PyPI, NPM, and Docker, and may not support all features of Pulp. If you are missing a feature, please open an issue or fork the repository and reference the fork in your issue.

@@ -61,5 +61,32 @@ release:
       name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
   # If you want to manually examine the release before its live, uncomment this line:
   # draft: true
+# Release notes are built from the Conventional Commits since the last tag,
+# the same messages cz derives the version number from.
 changelog:
-  disable: true
+  sort: asc
+  filters:
+    exclude:
+      - "^chore\\(release\\):"
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^style:"
+  groups:
+    - title: Breaking changes
+      regexp: '^.*?[[:word:]]+(\([[:word:]]+\))?!:.+$'
+      order: 0
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))?!?:.+$'
+      order: 1
+    - title: Bug fixes
+      regexp: '^.*?fix(\([[:word:]]+\))?!?:.+$'
+      order: 2
+    - title: Performance
+      regexp: '^.*?perf(\([[:word:]]+\))?!?:.+$'
+      order: 3
+    - title: Refactoring
+      regexp: '^.*?refactor(\([[:word:]]+\))?!?:.+$'
+      order: 4
+    - title: Other
+      order: 99
