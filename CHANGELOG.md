@@ -1,4 +1,14 @@
-## Unreleased
+## v0.4.0 (2026-09-02)
+
+### Feat
+
+- support the gem plugin, reading Pulp's schema from the running container
+- add retain_repo_versions, and make the documented environment variables work
+
+### Fix
+
+- work out the release version from every tag, not the reachable ones
+- refuse to cut a release that would collide or strand itself
 
 ### Refactor
 
