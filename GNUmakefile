@@ -47,27 +47,41 @@ diagrams:
 # Pushing the tag is what starts the build.
 CZ ?= $(shell command -v cz >/dev/null 2>&1 && echo cz || echo "uv tool run --from commitizen cz")
 
-# cz exits 3 with nothing since the last tag, 21 with nothing releasable.
+# The version the next release should carry: the increment cz derives from the
+# commits, applied to the highest tag in the repository rather than the highest
+# one reachable from HEAD.
+#
+# cz reads the current version off `git describe`, so a tag left behind on a
+# branch that was later rebased is invisible to it and it hands out a number
+# that is already taken. Taking the highest tag that exists anywhere means a
+# release can never reuse a version.
+#
+# Prints nothing when no commit since the last tag warrants a release.
+next-version:
+	@increment=$$($(CZ) bump --dry-run --yes 2>/dev/null | sed -n "s/^increment detected: //p"); \
+	[ -n "$$increment" ] || exit 0; \
+	git tag --list "v[0-9]*" --sort=-v:refname | head -1 | sed "s/^v//" | \
+		awk -F. -v inc="$$increment" '{ \
+			if (inc == "MAJOR") printf "%d.0.0\n", $$1 + 1; \
+			else if (inc == "MINOR") printf "%d.%d.0\n", $$1, $$2 + 1; \
+			else printf "%d.%d.%d\n", $$1, $$2, $$3 + 1 }'
+
+# Show the version the next release would carry, and the changelog it would
+# write. Changes nothing.
 release-dry-run:
-	@out=$$($(CZ) bump --dry-run --yes 2>&1); status=$$?; \
-	if [ $$status -eq 3 ] || [ $$status -eq 21 ]; then \
+	@next=$$($(MAKE) -s next-version); \
+	if [ -z "$$next" ]; then \
 		echo "Nothing since $$(git describe --tags --abbrev=0) warrants a release."; \
 		exit 0; \
 	fi; \
-	echo "$$out"; \
-	[ $$status -eq 0 ] || exit $$status; \
-	next=$$(echo "$$out" | sed -n "s/^tag to create: //p"); \
-	if [ -n "$$next" ] && git rev-parse -q --verify "refs/tags/$$next" >/dev/null; then \
-		echo; \
-		echo "$$next already exists but is not reachable from here, so this"; \
-		echo "release would fail. Delete the stray tag, or name the version"; \
-		echo "yourself with: $(CZ) bump <version>"; \
-	fi
+	echo "next version: v$$next"; \
+	echo; \
+	$(CZ) bump --dry-run --yes "$$next"
 
-# Version the Conventional Commits since the last tag, write CHANGELOG.md,
-# commit and tag. Needs a clean tree, and the default branch: cz commits the
-# changelog and tags that commit, so releasing from a feature branch leaves
-# the tag pointing at something master never gets.
+# Version the commits since the last tag, write CHANGELOG.md, commit and tag.
+# Needs a clean tree, and the default branch: cz commits the changelog and tags
+# that commit, so a release cut from a feature branch leaves the tag pointing
+# at a commit master never gets.
 RELEASE_BRANCH ?= master
 
 release:
@@ -78,20 +92,12 @@ release:
 		echo "would point at a commit $(RELEASE_BRANCH) never gets."; \
 		exit 1; \
 	fi; \
-	next=$$($(CZ) bump --dry-run --yes 2>/dev/null | sed -n "s/^tag to create: //p"); \
-	if [ -n "$$next" ] && git rev-parse -q --verify "refs/tags/$$next" >/dev/null; then \
-		echo "$$next already exists, but is not reachable from here."; \
-		echo "cz reads the version off the tags it can see, so it would pick a"; \
-		echo "name that is already taken. Delete the stray tag, or name the"; \
-		echo "version yourself with: $(CZ) bump <version>"; \
-		exit 1; \
-	fi; \
-	status=0; $(CZ) bump || status=$$?; \
-	if [ $$status -eq 3 ] || [ $$status -eq 21 ]; then \
+	next=$$($(MAKE) -s next-version); \
+	if [ -z "$$next" ]; then \
 		echo "Nothing since $$(git describe --tags --abbrev=0) warrants a release."; \
 		exit 0; \
 	fi; \
-	[ $$status -eq 0 ] || exit $$status; \
+	$(CZ) bump --yes "$$next"; \
 	echo; \
 	echo "Nothing has left this machine yet. To publish:"; \
 	echo "    git push --follow-tags"
@@ -101,4 +107,4 @@ changelog:
 	$(CZ) changelog
 
 .PHONY: fmt lint test testacc build install generate docker
-.PHONY: release release-dry-run changelog diagrams
+.PHONY: release release-dry-run next-version changelog diagrams
