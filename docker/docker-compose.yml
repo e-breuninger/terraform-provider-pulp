@@ -4,7 +4,11 @@
 
 services:
   pulp:
-    image: pulp/pulp
+    # Pinned so the acceptance tests, and the OpenAPI schema
+    # TestFeatureSetsMatchAPISchema reads from this container, run against a
+    # known Pulp rather than whatever "latest" happens to be. Dependabot
+    # raises the bump; see .github/dependabot.yml.
+    image: pulp/pulp:3.116.1
     container_name: pulp
     ports:
       - "8080:80"
