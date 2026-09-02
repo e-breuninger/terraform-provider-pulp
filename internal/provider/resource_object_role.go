@@ -137,8 +137,7 @@ func (r *pulpObjectRoleResource) readRoleAssignment(
 	return users, groups, found, nil
 }
 
-// callRoleAction posts to the add_role or remove_role action of an object.
-// Both take the same body and are no-ops when there is nothing to change.
+// callRoleAction posts to add_role or remove_role; both take the same body.
 func (r *pulpObjectRoleResource) callRoleAction(
 	ctx context.Context, action, pulpHref, role string, users, groups []string,
 ) error {

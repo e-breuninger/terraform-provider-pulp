@@ -56,9 +56,7 @@ func NewPulpRemoteResource() resource.Resource {
 				Optional: true, Computed: true,
 				Description: "Whether TLS peer validation must be performed.",
 			},
-			// Pulp accepts credentials but never reports them back, so they
-			// are write-only: hydrating them from a response would clobber
-			// the configured value with null.
+			// Write-only: Pulp never reports credentials back.
 			field{
 				Name: "username", Kind: fieldString,
 				Optional: true, WriteOnly: true,

@@ -50,10 +50,7 @@ func NewPulpUserResource() resource.Resource {
 				},
 			},
 			{
-				// Pulp stores only the hash and never reports the password
-				// back, so it is write-only. It is nullable so that removing
-				// it from the config clears it rather than silently leaving
-				// the old one in place.
+				// Write-only: Pulp stores only the hash.
 				Name: "password", Kind: fieldString,
 				Optional: true, Sensitive: true, WriteOnly: true, Nullable: true,
 				Description: "The password for this User. Pulp allows empty passwords but they are not recommended.",

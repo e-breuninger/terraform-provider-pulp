@@ -27,8 +27,7 @@ type pulpUserRoleResource struct {
 	pulpResource[PulpUserRoleModel]
 }
 
-// userRoleHrefRegex pulls the user ID back out of the href Pulp returns,
-// e.g. /pulp/api/v3/users/3/roles/<uuid>/.
+// userRoleHrefRegex reads the user ID out of /users/<id>/roles/<uuid>/.
 var userRoleHrefRegex = regexp.MustCompile(`/users/(\d+)/roles/`)
 
 func NewPulpUserRoleResource() resource.Resource {
@@ -39,15 +38,13 @@ func NewPulpUserRoleResource() resource.Resource {
 			"assignment, so every change replaces it.",
 		collection: "users",
 
-		// A UserRole is nested under the user it belongs to rather than
-		// living in a collection of its own.
+		// Nested under the user rather than in a collection of its own.
 		resourcePath: func(model *PulpUserRoleModel) string {
 			return client.BuildResourcePath("users", userIDPath(model.UserID), "roles")
 		},
 
-		// user_id is part of the URL, not the body, and Pulp does not report
-		// it as a field — but its href encodes it, which is what makes import
-		// work.
+		// user_id is in the URL, not the body, but the href encodes it,
+		// which is what makes import work.
 		afterHydrate: func(_ context.Context, data map[string]any, model *PulpUserRoleModel) {
 			href, _ := data["pulp_href"].(string)
 			matches := userRoleHrefRegex.FindStringSubmatch(href)
@@ -59,11 +56,8 @@ func NewPulpUserRoleResource() resource.Resource {
 			}
 		},
 
-		// Pulp offers no PATCH for a role assignment: the only way to change
-		// one is to drop it and add another. Requiring replacement on every
-		// attribute lets Terraform do exactly that, in the right order and
-		// visibly in the plan, instead of the resource silently deleting and
-		// re-creating itself during an update.
+		// Pulp has no PATCH for a role assignment, so every attribute
+		// requires replacement and Terraform does the drop-and-add itself.
 		fields: []field{
 			hrefField(),
 			{
@@ -94,7 +88,7 @@ func NewPulpUserRoleResource() resource.Resource {
 	}}
 }
 
-// userIDPath renders a user ID for use in a URL path.
+// userIDPath renders a user ID for a URL path.
 func userIDPath(id types.Number) string {
 	if id.IsNull() || id.IsUnknown() {
 		return ""

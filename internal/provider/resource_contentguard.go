@@ -19,19 +19,18 @@ type PulpContentGuardModel struct {
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
 
-	// Contentguards: X509 and Rhsm exclusive
+	// X509 and Rhsm only.
 	CaCertificate types.String `tfsdk:"ca_certificate"`
 
-	// Contentguards: Composite exclusive
+	// Composite only.
 	Guards types.List `tfsdk:"guards"`
 
-	// Contentguards: Header exclusive
+	// Header only.
 	HeaderName  types.String `tfsdk:"header_name"`
 	HeaderValue types.String `tfsdk:"header_value"`
 	JqFilter    types.String `tfsdk:"jq_filter"`
 
-	// Contentguards: Rbac exclusive. Pulp computes these from the role
-	// assignments made through pulp_object_role; they are never written here.
+	// Rbac only. Pulp computes these from pulp_object_role assignments.
 	Users  types.List `tfsdk:"users"`
 	Groups types.List `tfsdk:"groups"`
 }

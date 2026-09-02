@@ -9,32 +9,20 @@ import (
 	"strings"
 )
 
-// Pulp does not serve one endpoint per resource kind: it serves one endpoint
-// per *variant* of a kind, addressed as
-// /pulp/api/v3/<kind>/<content_type>/<plugin_name>/. Each variant accepts a
-// different set of fields — an npm distribution takes a `remote`, an rpm one
-// does not; only python distributions take `allow_uploads`; only
-// container ones have `private`. Posting a field the endpoint does not know
-// is rejected outright.
+// Pulp serves one endpoint per variant of a resource kind, at
+// /pulp/api/v3/<kind>/<content_type>/<plugin_name>/, and each accepts a
+// different set of fields.
 //
-// A featureSet is the provider's model of that: for one resource kind, which
-// optional attributes each variant supports. It is the single source of truth
-// behind three things that used to be maintained by hand and had drifted
-// apart:
+// A featureSet records which optional attributes each variant supports. It
+// drives the OneOf validators, the check that a content_type/plugin_name
+// combination exists, and whether an attribute reaches a request body.
+// Supporting a new plugin is one entry here.
 //
-//   - the `content_type` and `plugin_name` OneOf validators,
-//   - the check that the *combination* of the two is one Pulp actually serves,
-//   - the decision to include an attribute in a request body.
-//
-// Supporting a new Pulp plugin is therefore a single entry here; nothing else
-// in the resource needs to change.
-//
-// The entries mirror the POST request bodies of the Pulp 3 OpenAPI schema.
-// TestFeatureSetsMatchAPISchema checks them against a vendored copy of it.
+// The entries mirror the POST bodies of the Pulp 3 OpenAPI schema;
+// TestFeatureSetsMatchAPISchema checks them against a vendored copy.
 type featureSet map[string]map[string]bool
 
-// Feature names. These are the Pulp field names, and are shared by the schema
-// attribute, the request body key and the response key.
+// Feature names are the Pulp field names.
 const (
 	featureAllowUploads  = "allow_uploads"
 	featureCaCertificate = "ca_certificate"
@@ -54,22 +42,20 @@ func variantKey(contentType, pluginName string) string {
 	return contentType + "/" + pluginName
 }
 
-// supports reports whether the given variant accepts the named attribute.
-// An unknown variant supports nothing.
+// supports reports whether a variant accepts an attribute. An unknown variant
+// supports nothing.
 func (f featureSet) supports(contentType, pluginName, feature string) bool {
 	return f[variantKey(contentType, pluginName)][feature]
 }
 
-// knows reports whether Pulp serves an endpoint for the given variant.
+// knows reports whether Pulp serves an endpoint for the variant.
 func (f featureSet) knows(contentType, pluginName string) bool {
 	_, ok := f[variantKey(contentType, pluginName)]
 	return ok
 }
 
-// contentTypes returns every distinct content_type, sorted.
 func (f featureSet) contentTypes() []string { return f.keyHalves(0) }
 
-// pluginNames returns every distinct plugin_name, sorted.
 func (f featureSet) pluginNames() []string { return f.keyHalves(1) }
 
 func (f featureSet) keyHalves(i int) []string {
@@ -85,7 +71,7 @@ func (f featureSet) keyHalves(i int) []string {
 	return out
 }
 
-// variants returns every "<content_type>/<plugin_name>" combination, sorted.
+// variants returns every combination, sorted.
 func (f featureSet) variants() []string {
 	out := make([]string, 0, len(f))
 	for k := range f {
@@ -95,8 +81,7 @@ func (f featureSet) variants() []string {
 	return out
 }
 
-// variantsMarkdown renders the supported combinations as a markdown list, for
-// use in the schema description so the docs cannot drift from the code.
+// variantsMarkdown renders the combinations for a schema description.
 func (f featureSet) variantsMarkdown() string {
 	variants := f.variants()
 	quoted := make([]string, len(variants))
@@ -106,9 +91,7 @@ func (f featureSet) variantsMarkdown() string {
 	return strings.Join(quoted, ", ")
 }
 
-// variantsWith renders, as a markdown list, the variants that support the
-// given feature. Used to tell the practitioner where an attribute they set
-// would actually be accepted.
+// variantsWith renders the variants that support a feature.
 func (f featureSet) variantsWith(feature string) string {
 	var out []string
 	for _, v := range f.variants() {
@@ -119,12 +102,9 @@ func (f featureSet) variantsWith(feature string) string {
 	return strings.Join(out, ", ")
 }
 
-// distributionFeatures lists the distribution variants Pulp serves.
-//
-// `content_guard`, `repository`, `repository_version` and `pulp_labels` are
-// accepted by every variant and so are not tracked here. `namespace` is
-// read-only — it is listed because it is only *reported* by container
-// distributions, and is null everywhere else.
+// distributionFeatures omits content_guard, repository, repository_version
+// and pulp_labels, which every variant accepts. namespace is read-only and
+// only reported by container distributions.
 var distributionFeatures = featureSet{
 	"ansible/ansible":           {},
 	"container/container":       {featurePrivate: true, featureNamespace: true},
@@ -140,9 +120,8 @@ var distributionFeatures = featureSet{
 	"rpm/rpm":                   {},
 }
 
-// remoteFeatures lists the remote variants Pulp serves. Every variant accepts
-// `url`, `tls_validation`, `username`, `password` and `pulp_labels`; only the
-// git-backed ones lack a download `policy`.
+// remoteFeatures: every variant accepts url, tls_validation, username,
+// password and pulp_labels; only the git-backed ones lack a policy.
 var remoteFeatures = featureSet{
 	"ansible/collection":        {featurePolicy: true},
 	"ansible/git":               {},
@@ -161,10 +140,8 @@ var remoteFeatures = featureSet{
 	"rpm/uln":                   {featurePolicy: true},
 }
 
-// repositoryFeatures lists the repository variants Pulp serves. The
-// attributes this provider exposes (`description`, `remote`, `pulp_labels`)
-// are accepted by all of them, so no variant has extra features — the map
-// exists for the content_type/plugin_name validation.
+// repositoryFeatures: every variant accepts the attributes this provider
+// exposes, so the map only drives variant validation.
 var repositoryFeatures = featureSet{
 	"ansible/ansible":           {},
 	"container/container":       {},
@@ -179,8 +156,7 @@ var repositoryFeatures = featureSet{
 	"rpm/rpm":                   {},
 }
 
-// contentGuardFeatures lists the content guard variants Pulp serves. Every
-// variant accepts `name` and `description`; the rest are variant-specific.
+// contentGuardFeatures: every variant accepts name and description.
 var contentGuardFeatures = featureSet{
 	"certguard/rhsm":        {featureCaCertificate: true},
 	"certguard/x509":        {featureCaCertificate: true},
