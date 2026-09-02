@@ -36,6 +36,13 @@ test: testenv
 testacc: testenv
 	TF_ACC=1 go test -v -cover -timeout 120m ./...
 
+# GitHub does not render PlantUML, so diagrams are pre-rendered and committed.
+# Sources live in HTML comments in the markdown. See internal/provider/README.md.
+diagrams:
+	plantuml -headless -tsvg internal/provider/README.md
+	@# plantuml omits the trailing newline that end-of-file-fixer wants.
+	@printf '\n' >> internal/provider/architecture.svg
+
 # Releasing is manual: nothing in CI bumps the version or writes CHANGELOG.md.
 # Pushing the tag is what starts the build.
 CZ ?= $(shell command -v cz >/dev/null 2>&1 && echo cz || echo "uv tool run --from commitizen cz")
@@ -67,4 +74,4 @@ changelog:
 	$(CZ) changelog
 
 .PHONY: fmt lint test testacc build install generate docker
-.PHONY: release release-dry-run changelog
+.PHONY: release release-dry-run changelog diagrams

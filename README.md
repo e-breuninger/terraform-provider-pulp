@@ -56,16 +56,16 @@ go install
 ## Commit Messages And Releases
 
 Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
-This is not a style preference: the release is derived from them.
+The version and the changelog are derived from them, so the type matters.
 
-Install the hooks once, so a malformed message is caught before it is written:
+Install the hooks once to catch a malformed message before it is written:
 
 ```bash
 pre-commit install
 ```
 
-Pull requests are checked in CI as well, since a local hook can be skipped and
-a fork never ran it.
+CI checks pull requests too. A local hook can be skipped, and a fork never ran
+it.
 
 Releases are cut deliberately, not on every push. Nothing in CI bumps the
 version or writes `CHANGELOG.md`:
@@ -76,10 +76,12 @@ make release           # version, CHANGELOG.md, commit and tag
 git push --follow-tags # this is what starts the build
 ```
 
-Commitizen derives the version from the commits since the last tag, so the
-types below decide it. Pushing the tag starts the `Release` workflow, which
-builds the provider and publishes it with release notes grouped by change
-type.
+Run this on `master`, after merging. Commitizen tags the commit it writes
+`CHANGELOG.md` into, so a release cut from a feature branch leaves the tag
+pointing at a commit `master` never gets.
+
+Pushing the tag starts the `Release` workflow, which builds the provider and
+publishes it with release notes grouped by change type.
 
 | commit type                  | effect        |
 | ---------------------------- | ------------- |
@@ -89,9 +91,9 @@ type.
 | everything else              | no release    |
 
 `make release` reports that nothing warrants a release when only types in the
-last row have landed. Use
-`ci:` or `build:` for pipeline and test-harness changes: `fix:` would claim a
-provider bug was fixed and bump the version for a change users never see.
+last row have landed. Use `ci:` or `build:` for pipeline and test-harness work.
+`fix:` claims a provider bug was fixed, and bumps the version for a change
+users never see.
 
 ## Contributing
 
