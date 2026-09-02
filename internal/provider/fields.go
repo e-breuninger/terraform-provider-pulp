@@ -24,22 +24,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// A field is the single declaration of one attribute of a Pulp resource. The
-// terraform schema, the JSON request body and the hydration of the model from
-// a Pulp response are all derived from it, so adding an attribute to a
-// resource means adding one entry to that resource's field table plus the
-// matching struct member on its model — and nothing else.
-//
-// TestFieldTablesMatchModels keeps the two halves in step: it fails if a
-// table entry has no `tfsdk` struct member, or a struct member has no entry.
+// A field declares one attribute of a resource. Name is the Pulp field name
+// and doubles as the terraform attribute, the body key and the response key.
 type field struct {
-	// Name is the Pulp field name. It doubles as the terraform attribute
-	// name, the request body key and the response key — Pulp is consistent
-	// about this, and relying on it is what lets one entry drive all three.
-	Name string
-	Kind fieldKind
-	// Description is rendered into the docs as the attribute's
-	// MarkdownDescription.
+	Name        string
+	Kind        fieldKind
 	Description string
 
 	Required  bool
@@ -47,45 +36,27 @@ type field struct {
 	Computed  bool
 	Sensitive bool
 
-	// RequiresReplace forces replacement when the value changes. Used for the
-	// attributes that select which Pulp endpoint the resource lives on: they
-	// cannot be PATCHed, the resource has to be recreated elsewhere.
-	RequiresReplace bool
-	// UseStateForUnknown keeps a Computed attribute at its prior value during
-	// planning instead of showing "(known after apply)" on every change.
+	RequiresReplace    bool
 	UseStateForUnknown bool
 
-	// ReadOnly marks a value Pulp computes and refuses in a request body.
-	ReadOnly bool
-	// WriteOnly marks a value Pulp accepts but never returns — credentials,
-	// mostly. Hydration skips these, because overwriting the configured value
-	// with the null Pulp reports would fail the apply with "Provider produced
-	// inconsistent result after apply".
-	WriteOnly bool
-	// Nullable marks a Pulp field that accepts an explicit JSON null, so that
-	// removing the attribute from the config clears it server-side. Without
-	// it a null is omitted from the body instead, because Pulp rejects nulls
-	// on its many non-nullable fields with "This field may not be null."
-	Nullable bool
-	// EmptyIsNull marks a Pulp field reported as "" when unset, which has to
-	// be read back as null so it round-trips against an absent attribute.
+	ReadOnly  bool // Pulp assigns it and rejects it in a body.
+	WriteOnly bool // Pulp accepts it but never returns it, so never hydrate it.
+	Nullable  bool // Pulp accepts an explicit null, so clearing the config clears it.
+	// EmptyIsNull reads Pulp's "" for an unset field back as null.
 	EmptyIsNull bool
-	// Local marks an attribute that is not a Pulp field at all. content_type
-	// and plugin_name pick which endpoint the resource lives on rather than
-	// being stored on it, so they are neither sent in a request body nor read
-	// back from a response.
+	// Local is not a Pulp field: content_type and plugin_name pick the
+	// endpoint rather than being stored on the resource.
 	Local bool
 
-	// Feature gates the attribute on the resource's featureSet: it is only
-	// written to a request body, and only accepted in a config, for the
-	// content_type/plugin_name variants that list it. Empty means every
-	// variant supports the attribute.
+	// Feature limits the attribute to the variants of the resource's
+	// featureSet that list it. Empty means every variant accepts it.
 	Feature string
 
-	// Nested describes the element attributes of a fieldObjectList.
+	// Nested holds the element attributes of a fieldObjectList.
 	Nested []field
 
 	StringValidators []validator.String
+	NumberValidators []validator.Number
 	ListValidators   []validator.List
 }
 
@@ -101,8 +72,6 @@ const (
 	fieldObjectList
 )
 
-// attrType is the terraform type of a field, used to build nested object
-// types for fieldObjectList.
 func (f field) attrType() attr.Type {
 	switch f.Kind {
 	case fieldString:
@@ -131,9 +100,8 @@ func nestedAttrTypes(fs []field) map[string]attr.Type {
 	return out
 }
 
-// description is the attribute's rendered documentation. For a gated
-// attribute it names the variants that accept it, so the generated docs say
-// where it applies without anyone having to keep a second list in step.
+// description names the accepted variants for a gated attribute, so the docs
+// cannot drift from the featureSet.
 func (f field) description(features featureSet) string {
 	if f.Feature == "" || features == nil {
 		return f.Description
@@ -141,9 +109,8 @@ func (f field) description(features featureSet) string {
 	return f.Description + " Only supported by: " + features.variantsWith(f.Feature) + "."
 }
 
-// schemaAttribute renders the field as a terraform-plugin-framework schema
-// attribute. features is the resource's variant table, or nil for resources
-// served at a single endpoint.
+// schemaAttribute renders the field as a schema attribute. features is nil
+// for resources served at a single endpoint.
 func (f field) schemaAttribute(features featureSet) schema.Attribute {
 	description := f.description(features)
 
@@ -166,6 +133,7 @@ func (f field) schemaAttribute(features featureSet) schema.Attribute {
 		return schema.NumberAttribute{
 			Required: f.Required, Optional: f.Optional, Computed: f.Computed,
 			MarkdownDescription: description,
+			Validators:          f.NumberValidators,
 			PlanModifiers:       f.numberPlanModifiers(),
 		}
 	case fieldStringList:
@@ -254,7 +222,7 @@ func (f field) setPlanModifiers() []planmodifier.Set {
 	return out
 }
 
-// fieldsSchema renders a whole field table as a schema attribute map.
+// fieldsSchema renders a field table as a schema attribute map.
 func fieldsSchema(fs []field, features featureSet) map[string]schema.Attribute {
 	attrs := make(map[string]schema.Attribute, len(fs))
 	for _, f := range fs {
@@ -263,9 +231,8 @@ func fieldsSchema(fs []field, features featureSet) map[string]schema.Attribute {
 	return attrs
 }
 
-// modelValues indexes a terraform model struct by its `tfsdk` tags, so the
-// field table can address model members by their Pulp field name. model must
-// be a pointer to a struct.
+// modelValues indexes a model struct by its `tfsdk` tags. model must be a
+// pointer to a struct.
 func modelValues(model any) map[string]reflect.Value {
 	v := reflect.ValueOf(model)
 	for v.Kind() == reflect.Ptr {
@@ -282,10 +249,8 @@ func modelValues(model any) map[string]reflect.Value {
 }
 
 // buildBody renders the writable fields of a plan into a Pulp request body.
-//
-// supports reports whether the variant being written accepts a gated
-// attribute; pass nil for resources that have no content_type/plugin_name
-// variants, in which case every gated attribute is skipped.
+// supports reports whether the variant accepts a gated attribute; nil skips
+// every gated attribute.
 func buildBody(ctx context.Context, fs []field, plan any, supports func(feature string) bool) map[string]any {
 	body := make(map[string]any, len(fs))
 	values := modelValues(plan)
@@ -301,8 +266,8 @@ func buildBody(ctx context.Context, fs []field, plan any, supports func(feature 
 		if !ok {
 			continue
 		}
-		// The type assertions cannot fail: TestFieldTablesMatchModels
-		// checks every model member against the Kind its field declares.
+		// TestFieldTablesMatchModels checks every member against its Kind,
+		// so these assertions cannot fail.
 		switch f.Kind {
 		case fieldString:
 			if value, ok := valueOf[types.String](v); ok {
@@ -311,6 +276,10 @@ func buildBody(ctx context.Context, fs []field, plan any, supports func(feature 
 		case fieldBool:
 			if value, ok := valueOf[types.Bool](v); ok {
 				internal.SetBool(body, f.Name, value, f.Nullable)
+			}
+		case fieldNumber:
+			if value, ok := valueOf[types.Number](v); ok {
+				internal.SetNumber(body, f.Name, value, f.Nullable)
 			}
 		case fieldStringList:
 			if value, ok := valueOf[types.List](v); ok {
@@ -324,18 +293,15 @@ func buildBody(ctx context.Context, fs []field, plan any, supports func(feature 
 			if value, ok := valueOf[types.Map](v); ok {
 				internal.SetLabels(ctx, body, value)
 			}
-		case fieldNumber, fieldObjectList:
-			// Pulp assigns these (identifiers, computed role memberships) and
-			// rejects them in a request body, so they are always ReadOnly or
-			// Local and never reach this point.
+		case fieldObjectList:
+			// Always ReadOnly, so never reached.
 		}
 	}
 	return body
 }
 
-// hydrateModel copies a Pulp API response into a terraform model, following
-// the field table. Fields absent from the response become null, which is what
-// Pulp means by omitting them.
+// hydrateModel copies a Pulp response into a model. Absent fields become
+// null.
 func hydrateModel(ctx context.Context, fs []field, data map[string]any, model any) {
 	values := modelValues(model)
 
@@ -370,9 +336,8 @@ func hydrateModel(ctx context.Context, fs []field, data map[string]any, model an
 	}
 }
 
-// objectList converts a list of Pulp objects (e.g. the users and groups a
-// content guard grants access to) into a types.List of terraform objects,
-// following the nested field table.
+// objectList converts a list of Pulp objects into a types.List, following the
+// nested field table.
 func objectList(data map[string]any, f field) types.List {
 	attrTypes := nestedAttrTypes(f.Nested)
 	objType := types.ObjectType{AttrTypes: attrTypes}
@@ -415,14 +380,12 @@ func objectList(data map[string]any, f field) types.List {
 	return list
 }
 
-// valueOf reads an indexed model member as a concrete terraform value type.
 func valueOf[T attr.Value](v reflect.Value) (T, bool) {
 	value, ok := v.Interface().(T)
 	return value, ok
 }
 
-// goType is the terraform value type a field of this kind must be modelled
-// as. TestFieldTablesMatchModels checks each model member against it.
+// goType is the value type a field of this kind must be modelled as.
 func (f field) goType() reflect.Type {
 	switch f.Kind {
 	case fieldString:
@@ -441,8 +404,8 @@ func (f field) goType() reflect.Type {
 	panic(fmt.Sprintf("unhandled field kind %d for %q", f.Kind, f.Name))
 }
 
-// knownString reads a string attribute out of an indexed model, reporting
-// false when the attribute is absent, null, or still unknown at plan time.
+// knownString reads a string member, reporting false when it is absent, null
+// or unknown.
 func knownString(values map[string]reflect.Value, name string) (string, bool) {
 	v, ok := values[name]
 	if !ok {
@@ -455,8 +418,7 @@ func knownString(values map[string]reflect.Value, name string) (string, bool) {
 	return s.ValueString(), true
 }
 
-// isNullOrUnknown reports whether an indexed model value carries no
-// practitioner-supplied value.
+// isNullOrUnknown reports whether a member carries no configured value.
 func isNullOrUnknown(v reflect.Value) bool {
 	av, ok := v.Interface().(attr.Value)
 	if !ok {
@@ -465,7 +427,7 @@ func isNullOrUnknown(v reflect.Value) bool {
 	return av.IsNull() || av.IsUnknown()
 }
 
-// hrefField is the computed pulp_href that identifies every Pulp resource.
+// hrefField identifies every Pulp resource.
 func hrefField() field {
 	return field{
 		Name: "pulp_href", Kind: fieldString,
@@ -474,8 +436,7 @@ func hrefField() field {
 	}
 }
 
-// labelsField is the pulp_labels map shared by remotes, repositories and
-// distributions.
+// labelsField is shared by remotes, repositories and distributions.
 func labelsField() field {
 	return field{
 		Name: "pulp_labels", Kind: fieldLabels,
@@ -484,14 +445,9 @@ func labelsField() field {
 	}
 }
 
-// variantFields are the two attributes that select which Pulp endpoint a
-// resource lives on. Their accepted values, and the combinations listed in
-// their documentation, come straight from the resource's featureSet, so they
-// cannot drift from the variants the provider actually supports.
-//
-// Both require replacement: Pulp stores the resource under
-// /<collection>/<content_type>/<plugin_name>/, so changing either means a
-// different object at a different href, not an update of this one.
+// variantFields are the two attributes that select the Pulp endpoint. Their
+// accepted values come from the featureSet. Both require replacement: a
+// change means a different object at a different href.
 func variantFields(f featureSet) []field {
 	return []field{
 		{
@@ -510,9 +466,8 @@ func variantFields(f featureSet) []field {
 	}
 }
 
-// variantResourceFields prefixes a resource's own attributes with the
-// pulp_href and the content_type/plugin_name pair every variant-served
-// resource has.
+// variantResourceFields prefixes a resource's own attributes with pulp_href
+// and the content_type/plugin_name pair.
 func variantResourceFields(f featureSet, own ...field) []field {
 	return slices.Concat([]field{hrefField()}, variantFields(f), own)
 }

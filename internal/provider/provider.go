@@ -51,18 +51,20 @@ func (p *PulpProvider) Metadata(ctx context.Context, req provider.MetadataReques
 func (p *PulpProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			// Optional, not Required: a Required attribute cannot be omitted
+			// in favour of the environment variable.
 			"server_url": schema.StringAttribute{
-				Required:            true,
-				MarkdownDescription: "URI for Pulp API. May also be provided via `PULP_SERVER_URL` environment variable.",
+				Optional:            true,
+				MarkdownDescription: "URI for Pulp API. May also be provided via the `PULP_SERVER_URL` environment variable.",
 			},
 			"username": schema.StringAttribute{
-				Required:            true,
-				MarkdownDescription: "Username for Pulp API. May also be provided via `PULP_USERNAME` environment variable.",
+				Optional:            true,
+				MarkdownDescription: "Username for Pulp API. May also be provided via the `PULP_USERNAME` environment variable.",
 			},
 			"password": schema.StringAttribute{
-				Required:            true,
+				Optional:            true,
 				Sensitive:           true,
-				MarkdownDescription: "Password for Pulp API. May also be provided via `PULP_PASSWORD` environment variable.",
+				MarkdownDescription: "Password for Pulp API. May also be provided via the `PULP_PASSWORD` environment variable.",
 			},
 			"force_ipv4": schema.BoolAttribute{
 				Optional:            true,
@@ -76,41 +78,56 @@ func (p *PulpProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 	var config PulpProviderModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
-
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	server_url := os.Getenv("PULP_SERVER_URL")
-	username := os.Getenv("PULP_USERNAME")
-	password := os.Getenv("PULP_PASSWORD")
-	forceIPv4 := os.Getenv("PULP_FORCE_IPV4") == "true"
+	settings := []struct {
+		attribute  string
+		env        string
+		configured types.String
+		value      string
+	}{
+		{attribute: "server_url", env: "PULP_SERVER_URL", configured: config.ServerUrl},
+		{attribute: "username", env: "PULP_USERNAME", configured: config.Username},
+		{attribute: "password", env: "PULP_PASSWORD", configured: config.Password},
+	}
+	for i, s := range settings {
+		if s.configured.IsUnknown() {
+			resp.Diagnostics.AddAttributeError(path.Root(s.attribute),
+				fmt.Sprintf("Unknown Pulp API %s", s.attribute),
+				fmt.Sprintf("The provider cannot be configured from a value that is only known after apply. "+
+					"Set %s to a known value or use the %s environment variable.", s.attribute, s.env))
+			continue
+		}
+		if !s.configured.IsNull() {
+			settings[i].value = s.configured.ValueString()
+			continue
+		}
+		if settings[i].value = os.Getenv(s.env); settings[i].value == "" {
+			resp.Diagnostics.AddAttributeError(path.Root(s.attribute),
+				fmt.Sprintf("Missing Pulp API %s", s.attribute),
+				fmt.Sprintf("Set the provider's %s attribute or the %s environment variable.", s.attribute, s.env))
+		}
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	serverURL, username, password := settings[0].value, settings[1].value, settings[2].value
 
-	if !config.ServerUrl.IsNull() {
-		server_url = config.ServerUrl.ValueString()
-	}
-	if !config.Username.IsNull() {
-		username = config.Username.ValueString()
-	}
-	if !config.Password.IsNull() {
-		password = config.Password.ValueString()
-	}
-	if !config.ForceIPv4.IsNull() {
+	forceIPv4 := os.Getenv("PULP_FORCE_IPV4") == "true"
+	if !config.ForceIPv4.IsNull() && !config.ForceIPv4.IsUnknown() {
 		forceIPv4 = config.ForceIPv4.ValueBool()
 	}
 
-	parsedURL, urlParseError := urlx.Parse(server_url)
-	if urlParseError != nil {
-		resp.Diagnostics.AddAttributeError(path.Root("server_url"), "No valid URL.", fmt.Sprintf("Error while trying to parse URL: %s", urlParseError))
+	parsedURL, err := urlx.Parse(serverURL)
+	if err != nil {
+		resp.Diagnostics.AddAttributeError(path.Root("server_url"), "No valid URL.",
+			fmt.Sprintf("Error while trying to parse URL: %s", err))
 		return
 	}
 
-	pulpClient, err := client.NewPulpClient(
-		parsedURL.String(),
-		username,
-		password,
-		forceIPv4,
-	)
+	pulpClient, err := client.NewPulpClient(parsedURL.String(), username, password, forceIPv4)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to create Pulp client", fmt.Sprintf("Error: %s", err))
 		return

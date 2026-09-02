@@ -12,15 +12,12 @@ import (
 	"testing"
 )
 
-// apiSchemaPath is a vendored copy of Pulp's OpenAPI schema, fetched from a
-// running Pulp with:
+// apiSchemaPath is a vendored copy of Pulp's OpenAPI schema:
 //
 //	curl -o 'Pulp 3 API.json' http://localhost:8080/pulp/api/v3/docs/api.json
 //
-// It is large, so it is not required to be present: the tests that read it
-// skip when it is missing. Refresh it when upgrading the Pulp version this
-// provider targets, and TestFeatureSetsMatchAPISchema will point at every
-// variant and attribute that has appeared or gone away.
+// It is large, so the tests that read it skip when it is missing. Refresh it
+// when targeting a new Pulp version.
 const apiSchemaPath = "../../Pulp 3 API.json"
 
 // openAPI is the slice of the schema these tests need.
@@ -82,9 +79,8 @@ func loadAPISchema(t *testing.T) *openAPI {
 	return &api
 }
 
-// variantFields walks the collection's per-variant endpoints and reports,
-// for each variant, the fields its POST body accepts and the fields its
-// listing reports back.
+// variantFields reports, per variant, the fields its POST body accepts and
+// the fields its listing returns.
 func (a *openAPI) variantFields(collection string) (writable, readable map[string]map[string]bool) {
 	pattern := regexp.MustCompile(`^/pulp/api/v3/` + collection + `/([^/{]+)/([^/{]+)/$`)
 	writable = map[string]map[string]bool{}
@@ -125,20 +121,18 @@ func (a *openAPI) variantFields(collection string) (writable, readable map[strin
 	return writable, readable
 }
 
-// TestFeatureSetsMatchAPISchema is what makes the feature maps trustworthy:
-// it checks every declared variant, and every attribute gated on a feature,
-// against Pulp's own OpenAPI schema. When Pulp gains or drops a plugin, this
-// is the test that says so.
+// TestFeatureSetsMatchAPISchema checks every declared variant and gated
+// attribute against Pulp's own schema, so a Pulp upgrade that adds or drops a
+// plugin fails here.
 func TestFeatureSetsMatchAPISchema(t *testing.T) {
 	api := loadAPISchema(t)
 
 	for _, tc := range []struct {
 		collection string
 		features   featureSet
-		// tracked are the features compared against the schema. A feature is
-		// listed here once it is declared on at least one variant.
+		// tracked features are compared against the schema.
 		tracked []string
-		// readOnly features live in the response rather than the POST body.
+		// readOnly features live in the response, not the POST body.
 		readOnly []string
 	}{
 		{
@@ -199,8 +193,7 @@ func TestFeatureSetsMatchAPISchema(t *testing.T) {
 						}
 					}
 
-					// Only variants the provider declares can be compared;
-					// the variants check above covers the rest.
+					// The variants subtest above covers undeclared ones.
 					want = slices.DeleteFunc(want, func(v string) bool {
 						return !slices.Contains(tc.features.variants(), v)
 					})
@@ -215,9 +208,8 @@ func TestFeatureSetsMatchAPISchema(t *testing.T) {
 	}
 }
 
-// TestGatedAttributesAreRealPulpFields checks that every feature-gated
-// attribute is spelled the way Pulp spells it — the field table relies on the
-// attribute name, the body key and the response key being the same string.
+// TestGatedAttributesAreRealPulpFields checks every attribute is spelled the
+// way Pulp spells it; the field table relies on that.
 func TestGatedAttributesAreRealPulpFields(t *testing.T) {
 	api := loadAPISchema(t)
 
@@ -264,7 +256,7 @@ func sortedKeys[V any](m map[string]V) []string {
 	return out
 }
 
-// missing returns the elements of want that are absent from got.
+// missing returns the elements of want absent from got.
 func missing(want, got []string) []string {
 	out := []string{}
 	for _, w := range want {

@@ -18,37 +18,28 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// pulpResource implements the CRUD lifecycle every Pulp resource shares:
-// POST to a collection to create, then GET/PATCH/DELETE the pulp_href the
-// server hands back. A concrete resource embeds it and supplies only its
-// declaration — the field table, the variants it supports, and its names.
+// pulpResource is the CRUD lifecycle every Pulp resource shares: POST to a
+// collection, then GET/PATCH/DELETE the pulp_href the server returns. A
+// resource embeds it and supplies only its declaration. M is the resource's
+// model, whose `tfsdk` tags match the Name of each field.
 //
-// M is the resource's terraform model struct, whose `tfsdk` tags line up with
-// the Name of each entry in fields.
+// See README.md.
 type pulpResource[M any] struct {
 	client *client.PulpClient
 
-	// typeName is the terraform type suffix: "distribution" makes
-	// pulp_distribution.
-	typeName string
-	// label names the resource in diagnostics, e.g. "Distribution".
-	label string
-	// description is the resource's MarkdownDescription.
+	typeName    string // terraform type suffix: "distribution" -> pulp_distribution
+	label       string // name used in diagnostics, e.g. "Distribution"
 	description string
-	// collection is the Pulp API collection segment, e.g. "distributions".
-	collection string
-	// features declares the content_type/plugin_name variants this resource
-	// is served at, and which attributes each one accepts. It is nil for the
-	// resources that live at a single endpoint, such as groups and users.
+	collection  string // Pulp API collection segment, e.g. "distributions"
+	// features is nil for resources served at a single endpoint.
 	features featureSet
-	// fields declares every attribute of the resource.
-	fields []field
+	fields   []field
 
-	// resourcePath overrides the collection path a create POSTs to. Only
-	// needed by resources nested under another one, such as user roles.
+	// resourcePath overrides the collection a create POSTs to, for resources
+	// nested under another one.
 	resourcePath func(model *M) string
-	// afterHydrate runs after the generic hydration, for the few values that
-	// have to be derived rather than read straight out of the response.
+	// afterHydrate derives values that are not read straight from the
+	// response.
 	afterHydrate func(ctx context.Context, data map[string]any, model *M)
 }
 
@@ -74,8 +65,7 @@ func (r *pulpResource[M]) Configure(_ context.Context, req resource.ConfigureReq
 	r.client = configureClient(req, resp)
 }
 
-// configureClient unwraps the provider data every resource and data source
-// receives.
+// configureClient unwraps the provider data a resource receives.
 func configureClient(req resource.ConfigureRequest, resp *resource.ConfigureResponse) *client.PulpClient {
 	if req.ProviderData == nil {
 		return nil
@@ -89,9 +79,8 @@ func configureClient(req resource.ConfigureRequest, resp *resource.ConfigureResp
 	return c
 }
 
-// variant reads the content_type/plugin_name pair that selects this
-// resource's Pulp endpoint. It returns empty strings for resources that have
-// no variants.
+// variant reads the pair that selects the endpoint, empty for resources
+// without variants.
 func (r *pulpResource[M]) variant(model *M) (contentType, pluginName string) {
 	values := modelValues(model)
 	contentType, _ = knownString(values, "content_type")
@@ -111,8 +100,8 @@ func (r *pulpResource[M]) path(model *M) string {
 	return client.BuildResourcePath(r.collection, contentType, pluginName)
 }
 
-// body renders the plan into a Pulp request body, gating variant-specific
-// attributes on the resource's featureSet.
+// body renders the plan into a request body, gating attributes on the
+// featureSet.
 func (r *pulpResource[M]) body(ctx context.Context, model *M) map[string]any {
 	if r.features == nil {
 		return buildBody(ctx, r.fields, model, nil)
@@ -133,7 +122,6 @@ func (r *pulpResource[M]) hydrate(ctx context.Context, data map[string]any, mode
 	}
 }
 
-// href reads the pulp_href that identifies an existing resource.
 func (r *pulpResource[M]) href(model *M) string {
 	href, _ := knownString(modelValues(model), "pulp_href")
 	return href
@@ -185,8 +173,8 @@ func (r *pulpResource[M]) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	// content_type and plugin_name require replacement, so the variant in the
-	// plan always matches the one the existing href lives on.
+	// content_type and plugin_name require replacement, so the plan's variant
+	// always matches the existing href.
 	result, err := r.client.Update(ctx, r.href(&state), r.body(ctx, &plan))
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to update "+r.label, err.Error())
@@ -209,9 +197,8 @@ func (r *pulpResource[M]) Delete(ctx context.Context, req resource.DeleteRequest
 	}
 }
 
-// ImportState imports by pulp_href. For resources served per variant the
-// content_type and plugin_name are recovered from the href itself, since the
-// href encodes them: /pulp/api/v3/remotes/<content_type>/<plugin_name>/<id>/.
+// ImportState imports by pulp_href, recovering content_type and plugin_name
+// from it: /pulp/api/v3/remotes/<content_type>/<plugin_name>/<id>/.
 func (r *pulpResource[M]) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("pulp_href"), req.ID)...)
 	if r.features == nil {
@@ -227,9 +214,8 @@ func (r *pulpResource[M]) ImportState(ctx context.Context, req resource.ImportSt
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("plugin_name"), pluginName)...)
 }
 
-// ValidateConfig rejects configurations Pulp could only answer with a 404 or
-// a validation error, and does it at plan time with a message that says what
-// is actually supported.
+// ValidateConfig rejects at plan time what Pulp could only answer with a 404
+// or a validation error.
 func (r *pulpResource[M]) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
 	if r.features == nil {
 		return
@@ -245,8 +231,7 @@ func (r *pulpResource[M]) ValidateConfig(ctx context.Context, req resource.Valid
 	contentType, okCT := knownString(values, "content_type")
 	pluginName, okPN := knownString(values, "plugin_name")
 	if !okCT || !okPN {
-		// Either half can be an unresolved reference at plan time; Pulp will
-		// have the last word.
+		// An unresolved reference at plan time; Pulp has the last word.
 		return
 	}
 
@@ -261,10 +246,9 @@ func (r *pulpResource[M]) ValidateConfig(ctx context.Context, req resource.Valid
 	r.validateFeatures(values, contentType, pluginName, &resp.Diagnostics)
 }
 
-// validateFeatures reports attributes that are set in the config but not
-// accepted by the chosen variant. Without this the attribute would be
-// silently dropped from the request body and then read back as null, which
-// surfaces much later as a confusing "inconsistent result after apply".
+// validateFeatures reports attributes set in the config but not accepted by
+// the chosen variant, which would otherwise be dropped from the body and read
+// back as null.
 func (r *pulpResource[M]) validateFeatures(values map[string]reflect.Value, contentType, pluginName string, diags *diag.Diagnostics) {
 	for _, f := range r.fields {
 		if f.Feature == "" || f.ReadOnly || r.features.supports(contentType, pluginName, f.Feature) {
@@ -281,8 +265,8 @@ func (r *pulpResource[M]) validateFeatures(values map[string]reflect.Value, cont
 	}
 }
 
-// fieldTable exposes a resource's declaration for tests and tooling. Every
-// resource built on pulpResource implements it.
+// fieldTable and featureTable expose a resource's declaration to the tests
+// that check it.
 type fieldTable interface {
 	fieldTable() []field
 	newModel() any
@@ -295,8 +279,6 @@ func (r *pulpResource[M]) newModel() any {
 	return &m
 }
 
-// featureTable exposes the variants a resource is served at, or nil for the
-// resources that live at a single endpoint.
 type featureTable interface {
 	featureTable() featureSet
 	collectionName() string

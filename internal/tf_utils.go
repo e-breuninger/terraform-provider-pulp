@@ -13,14 +13,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// This file holds the conversions between Pulp's decoded JSON
-// (map[string]any) and the terraform-plugin-framework value types. Every
-// resource hydrates its model from a response map and builds its request
-// body from a plan, so these helpers keep that translation in one place
-// instead of once per attribute per resource.
+// Conversions between Pulp's decoded JSON and the terraform-plugin-framework
+// value types.
 
-// StrOrNull returns data[key] as a types.String, or null if it is absent or
-// not a string.
+// StrOrNull returns data[key] as a types.String, or null if absent or not a
+// string.
 func StrOrNull(data map[string]any, key string) types.String {
 	if v, ok := data[key].(string); ok {
 		return types.StringValue(v)
@@ -28,8 +25,8 @@ func StrOrNull(data map[string]any, key string) types.String {
 	return types.StringNull()
 }
 
-// StrOrNullNonEmpty behaves like StrOrNull but also maps an empty string to
-// null, matching Pulp's habit of reporting unset optional fields as "".
+// StrOrNullNonEmpty also maps "" to null, which is how Pulp reports an unset
+// optional field.
 func StrOrNullNonEmpty(data map[string]any, key string) types.String {
 	if v, ok := data[key].(string); ok && v != "" {
 		return types.StringValue(v)
@@ -37,8 +34,8 @@ func StrOrNullNonEmpty(data map[string]any, key string) types.String {
 	return types.StringNull()
 }
 
-// BoolOrNull returns data[key] as a types.Bool, or null if it is absent or
-// not a bool.
+// BoolOrNull returns data[key] as a types.Bool, or null if absent or not a
+// bool.
 func BoolOrNull(data map[string]any, key string) types.Bool {
 	if v, ok := data[key].(bool); ok {
 		return types.BoolValue(v)
@@ -46,8 +43,8 @@ func BoolOrNull(data map[string]any, key string) types.Bool {
 	return types.BoolNull()
 }
 
-// NumberOrNull returns data[key] as a types.Number, or null if it is absent
-// or not a number. encoding/json decodes every JSON number into a float64.
+// NumberOrNull returns data[key] as a types.Number, or null if absent or not
+// a number.
 func NumberOrNull(data map[string]any, key string) types.Number {
 	if v, ok := data[key].(float64); ok {
 		return types.NumberValue(big.NewFloat(v))
@@ -55,8 +52,7 @@ func NumberOrNull(data map[string]any, key string) types.Number {
 	return types.NumberNull()
 }
 
-// StringList returns data[key] as a types.List of strings, or a null list if
-// it is absent, not a list, or cannot be converted.
+// StringList returns data[key] as a types.List of strings, or a null list.
 func StringList(ctx context.Context, data map[string]any, key string) types.List {
 	v, ok := data[key].([]any)
 	if !ok {
@@ -75,8 +71,7 @@ func StringList(ctx context.Context, data map[string]any, key string) types.List
 	return list
 }
 
-// LabelsOrNull converts the pulp_labels object of a Pulp response into a
-// types.Map of strings.
+// LabelsOrNull converts a response's pulp_labels into a types.Map.
 func LabelsOrNull(ctx context.Context, data map[string]any) types.Map {
 	v, ok := data["pulp_labels"].(map[string]any)
 	if !ok {
@@ -95,8 +90,7 @@ func LabelsOrNull(ctx context.Context, data map[string]any) types.Map {
 	return m
 }
 
-// ListToStrings converts a types.List of strings to []string, returning nil
-// for a null or unknown list.
+// ListToStrings converts a types.List to []string, nil when null or unknown.
 func ListToStrings(ctx context.Context, l types.List) ([]string, error) {
 	if l.IsNull() || l.IsUnknown() {
 		return nil, nil
@@ -108,9 +102,8 @@ func ListToStrings(ctx context.Context, l types.List) ([]string, error) {
 	return out, nil
 }
 
-// StringsToList converts a []string into a sorted types.List. Sorting keeps
-// state stable across reads for collections Pulp returns in arbitrary order.
-// The input is not modified.
+// StringsToList converts a []string into a sorted types.List, so state stays
+// stable across reads. The input is not modified.
 func StringsToList(in []string) types.List {
 	sorted := append([]string(nil), in...)
 	sort.Strings(sorted)
@@ -122,19 +115,12 @@ func StringsToList(in []string) types.List {
 	return l
 }
 
-// SetStr writes an Optional (or Optional+Computed) string attribute into a
-// Pulp request body.
+// SetStr writes a string attribute into a request body.
 //
-// Unknown always means "omit": the framework leaves an Optional+Computed
-// attribute unknown whenever some *other* attribute of the resource changed,
-// and Pulp's PATCH treats an absent key as "leave it alone" — which is
-// exactly what we want. Sending null instead would break the many Pulp
-// fields declared non-nullable ("This field may not be null.").
-//
-// Null means "the practitioner removed this from the config". That only
-// clears the field server-side if we say so explicitly, so it is sent as
-// JSON null when nullable is true, and omitted otherwise (Pulp would reject
-// the null on a non-nullable field).
+// Unknown is omitted: PATCH treats an absent key as "leave it alone", while a
+// null would be rejected by Pulp's many non-nullable fields. Null means the
+// attribute was removed from the config, which only clears the field
+// server-side if sent explicitly, so it is sent when nullable.
 func SetStr(body map[string]any, key string, s types.String, nullable bool) {
 	switch {
 	case s.IsUnknown():
@@ -160,8 +146,26 @@ func SetBool(body map[string]any, key string, b types.Bool, nullable bool) {
 	}
 }
 
-// SetLabels writes a pulp_labels map into a Pulp request body, omitting it
-// when null or unknown.
+// SetNumber is the types.Number counterpart of SetStr. Pulp's numeric fields
+// are integers, so an exact whole number is sent as one.
+func SetNumber(body map[string]any, key string, n types.Number, nullable bool) {
+	switch {
+	case n.IsUnknown():
+	case n.IsNull():
+		if nullable {
+			body[key] = nil
+		}
+	default:
+		if i, accuracy := n.ValueBigFloat().Int64(); accuracy == big.Exact {
+			body[key] = i
+			return
+		}
+		f, _ := n.ValueBigFloat().Float64()
+		body[key] = f
+	}
+}
+
+// SetLabels writes pulp_labels into a request body, omitting null or unknown.
 func SetLabels(ctx context.Context, body map[string]any, m types.Map) {
 	if m.IsNull() || m.IsUnknown() {
 		return
@@ -171,8 +175,7 @@ func SetLabels(ctx context.Context, body map[string]any, m types.Map) {
 	body["pulp_labels"] = labels
 }
 
-// SetStringList writes a list-of-strings attribute into a Pulp request body,
-// omitting it when null or unknown.
+// SetStringList writes a list attribute, omitting null or unknown.
 func SetStringList(ctx context.Context, body map[string]any, key string, l types.List) {
 	if l.IsNull() || l.IsUnknown() {
 		return
@@ -184,8 +187,7 @@ func SetStringList(ctx context.Context, body map[string]any, key string, l types
 	body[key] = values
 }
 
-// StringSet returns data[key] as a types.Set of strings, or a null set if it
-// is absent, not a list, or cannot be converted.
+// StringSet returns data[key] as a types.Set of strings, or a null set.
 func StringSet(ctx context.Context, data map[string]any, key string) types.Set {
 	v, ok := data[key].([]any)
 	if !ok {
@@ -204,8 +206,7 @@ func StringSet(ctx context.Context, data map[string]any, key string) types.Set {
 	return set
 }
 
-// SetStringSet writes a set-of-strings attribute into a Pulp request body,
-// omitting it when null or unknown.
+// SetStringSet writes a set attribute, omitting null or unknown.
 func SetStringSet(ctx context.Context, body map[string]any, key string, s types.Set) {
 	if s.IsNull() || s.IsUnknown() {
 		return

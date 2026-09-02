@@ -66,3 +66,32 @@ func TestRepositoryResource(t *testing.T) {
 		},
 	})
 }
+
+func TestRepositoryRetainRepoVersions(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{ // set
+				Config: providerConfig + `
+resource "pulp_repository" "retain" {
+  content_type         = "npm"
+  plugin_name          = "npm"
+  name                 = "tf-acc-retain"
+  description          = "retain"
+  retain_repo_versions = 3
+}`,
+				Check: resource.TestCheckResourceAttr("pulp_repository.retain", "retain_repo_versions", "3"),
+			},
+			{ // clear -> Pulp must receive an explicit null
+				Config: providerConfig + `
+resource "pulp_repository" "retain" {
+  content_type = "npm"
+  plugin_name  = "npm"
+  name         = "tf-acc-retain"
+  description  = "retain"
+}`,
+				Check: resource.TestCheckNoResourceAttr("pulp_repository.retain", "retain_repo_versions"),
+			},
+		},
+	})
+}

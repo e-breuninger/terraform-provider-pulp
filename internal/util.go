@@ -10,14 +10,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
 )
 
-// hrefVariantParts is the number of "/"-separated segments a plugin-typed
-// pulp_href has, e.g. /pulp/api/v3/repositories/npm/npm/<uuid>/ ->
-// ["pulp", "api", "v3", "repositories", "npm", "npm", "<uuid>"].
+// hrefVariantParts is the segment count of a plugin-typed pulp_href:
+// /pulp/api/v3/repositories/npm/npm/<uuid>/.
 const hrefVariantParts = 7
 
-// ParseHrefVariant extracts the content_type and plugin_name of a
-// plugin-typed pulp_href, as used by remotes, repositories, distributions
-// and content guards.
+// ParseHrefVariant extracts the content_type and plugin_name from a
+// plugin-typed pulp_href.
 func ParseHrefVariant(pulpHref string) (contentType, pluginName string, err error) {
 	parts := strings.Split(strings.Trim(pulpHref, "/"), "/")
 	if len(parts) < hrefVariantParts {
@@ -28,8 +26,8 @@ func ParseHrefVariant(pulpHref string) (contentType, pluginName string, err erro
 	return parts[4], parts[5], nil
 }
 
-// CompositeID joins a pulp_href and a role into the single import ID used by
-// resources Pulp does not give an href of their own.
+// CompositeID joins a pulp_href and a role into an import ID, for resources
+// Pulp gives no href of their own.
 func CompositeID(cgHref, role string) string {
 	return fmt.Sprintf("%s|%s", cgHref, role)
 }
@@ -43,8 +41,7 @@ func SplitCompositeID(id string) (cgHref, role string, err error) {
 	return parts[0], parts[1], nil
 }
 
-// RandomSuffix returns a random string used to keep acceptance test fixtures
-// from colliding.
+// RandomSuffix keeps acceptance test fixtures from colliding.
 func RandomSuffix() string {
 	return acctest.RandStringFromCharSet(8, acctest.CharSetAlphaNum)
 }

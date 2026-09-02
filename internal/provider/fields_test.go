@@ -15,8 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// declaredResources returns every resource the provider exposes, keyed by its
-// terraform type name.
+// declaredResources returns every resource, keyed by terraform type name.
 func declaredResources(t *testing.T) map[string]resource.Resource {
 	t.Helper()
 
@@ -30,9 +29,8 @@ func declaredResources(t *testing.T) map[string]resource.Resource {
 	return out
 }
 
-// TestFieldTablesMatchModels is the guardrail that lets a field table be the
-// single declaration of an attribute: it fails if a table entry has no model
-// member to hydrate into, or a model member no table entry to describe it.
+// TestFieldTablesMatchModels is what lets a field table be the single
+// declaration of an attribute: table and model must agree, by name and type.
 func TestFieldTablesMatchModels(t *testing.T) {
 	for name, r := range declaredResources(t) {
 		table, ok := r.(fieldTable)
@@ -57,9 +55,7 @@ func TestFieldTablesMatchModels(t *testing.T) {
 					t.Errorf("attribute %q has no `tfsdk:%q` member on the model", f.Name, f.Name)
 					continue
 				}
-				// The generic body and hydration code asserts each member to
-				// the type its Kind implies, so a mismatch would silently
-				// drop the attribute.
+				// A mismatch would silently drop the attribute.
 				if got, want := member.Type(), f.goType(); got != want {
 					t.Errorf("attribute %q is modelled as %s but its Kind needs %s", f.Name, got, want)
 				}
@@ -73,9 +69,8 @@ func TestFieldTablesMatchModels(t *testing.T) {
 	}
 }
 
-// TestFieldTablesAreWellFormed checks the invariants the generic schema,
-// body and hydration code relies on, so a malformed declaration fails here
-// rather than at plan time inside Terraform.
+// TestFieldTablesAreWellFormed fails a malformed declaration here rather than
+// at plan time inside Terraform.
 func TestFieldTablesAreWellFormed(t *testing.T) {
 	for name, r := range declaredResources(t) {
 		table, ok := r.(fieldTable)
@@ -110,8 +105,11 @@ func TestFieldTablesAreWellFormed(t *testing.T) {
 				if f.Kind == fieldObjectList && len(f.Nested) == 0 {
 					t.Errorf("%q: an object list needs Nested attributes", f.Name)
 				}
-				if (f.Kind == fieldNumber || f.Kind == fieldObjectList) && !f.ReadOnly && !f.Local {
-					t.Errorf("%q: numbers and object lists are never written back, mark them ReadOnly or Local", f.Name)
+				if f.Kind == fieldObjectList && !f.ReadOnly {
+					t.Errorf("%q: object lists are never written back, mark them ReadOnly", f.Name)
+				}
+				if f.EmptyIsNull && f.Kind != fieldString {
+					t.Errorf("%q: EmptyIsNull only applies to strings", f.Name)
 				}
 
 				if f.Feature == "" {
@@ -129,8 +127,8 @@ func TestFieldTablesAreWellFormed(t *testing.T) {
 	}
 }
 
-// TestSchemasBuild renders every resource schema, which is also the only way
-// the panics in schemaAttribute can fire.
+// TestSchemasBuild renders every schema, the only way schemaAttribute can
+// panic.
 func TestSchemasBuild(t *testing.T) {
 	for name, r := range declaredResources(t) {
 		t.Run(name, func(t *testing.T) {
@@ -285,8 +283,8 @@ func TestFeatureSetAccessors(t *testing.T) {
 	}
 }
 
-// TestVariantValidatorsCoverEveryVariant checks that the OneOf validators
-// derived from a featureSet accept every combination it declares.
+// TestVariantValidatorsCoverEveryVariant checks the derived OneOf validators
+// accept every declared combination.
 func TestVariantValidatorsCoverEveryVariant(t *testing.T) {
 	for name, r := range declaredResources(t) {
 		ft, ok := r.(featureTable)

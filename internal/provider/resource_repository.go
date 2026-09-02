@@ -12,13 +12,14 @@ import (
 )
 
 type PulpRepositoryModel struct {
-	PulpHref    types.String `tfsdk:"pulp_href"`
-	ContentType types.String `tfsdk:"content_type"`
-	PluginName  types.String `tfsdk:"plugin_name"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
-	Remote      types.String `tfsdk:"remote"`
-	PulpLabels  types.Map    `tfsdk:"pulp_labels"`
+	PulpHref           types.String `tfsdk:"pulp_href"`
+	ContentType        types.String `tfsdk:"content_type"`
+	PluginName         types.String `tfsdk:"plugin_name"`
+	Name               types.String `tfsdk:"name"`
+	Description        types.String `tfsdk:"description"`
+	Remote             types.String `tfsdk:"remote"`
+	RetainRepoVersions types.Number `tfsdk:"retain_repo_versions"`
+	PulpLabels         types.Map    `tfsdk:"pulp_labels"`
 }
 
 type pulpRepositoryResource struct {
@@ -46,6 +47,13 @@ func NewPulpRepositoryResource() resource.Resource {
 				Optional: true, Nullable: true, EmptyIsNull: true,
 				Description:      "The `pulp_href` of the Remote this Repository syncs from.",
 				StringValidators: []validator.String{validators.PulpHrefValidator()},
+			},
+			field{
+				Name: "retain_repo_versions", Kind: fieldNumber,
+				Optional: true, Nullable: true,
+				Description: "How many versions of this Repository to retain. " +
+					"Older versions are deleted automatically. Unset retains every version.",
+				NumberValidators: []validator.Number{validators.NumberAtLeast(1)},
 			},
 			labelsField(),
 		),
