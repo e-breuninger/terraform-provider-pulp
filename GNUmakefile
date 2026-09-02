@@ -49,17 +49,44 @@ CZ ?= $(shell command -v cz >/dev/null 2>&1 && echo cz || echo "uv tool run --fr
 
 # cz exits 3 with nothing since the last tag, 21 with nothing releasable.
 release-dry-run:
-	@status=0; $(CZ) bump --dry-run || status=$$?; \
+	@out=$$($(CZ) bump --dry-run --yes 2>&1); status=$$?; \
 	if [ $$status -eq 3 ] || [ $$status -eq 21 ]; then \
 		echo "Nothing since $$(git describe --tags --abbrev=0) warrants a release."; \
 		exit 0; \
 	fi; \
-	exit $$status
+	echo "$$out"; \
+	[ $$status -eq 0 ] || exit $$status; \
+	next=$$(echo "$$out" | sed -n "s/^tag to create: //p"); \
+	if [ -n "$$next" ] && git rev-parse -q --verify "refs/tags/$$next" >/dev/null; then \
+		echo; \
+		echo "$$next already exists but is not reachable from here, so this"; \
+		echo "release would fail. Delete the stray tag, or name the version"; \
+		echo "yourself with: $(CZ) bump <version>"; \
+	fi
 
 # Version the Conventional Commits since the last tag, write CHANGELOG.md,
-# commit and tag. Needs a clean tree.
+# commit and tag. Needs a clean tree, and the default branch: cz commits the
+# changelog and tags that commit, so releasing from a feature branch leaves
+# the tag pointing at something master never gets.
+RELEASE_BRANCH ?= master
+
 release:
-	@status=0; $(CZ) bump || status=$$?; \
+	@branch=$$(git rev-parse --abbrev-ref HEAD); \
+	if [ "$$branch" != "$(RELEASE_BRANCH)" ]; then \
+		echo "Release from $(RELEASE_BRANCH), not $$branch."; \
+		echo "cz tags the commit it writes CHANGELOG.md into, so a tag cut here"; \
+		echo "would point at a commit $(RELEASE_BRANCH) never gets."; \
+		exit 1; \
+	fi; \
+	next=$$($(CZ) bump --dry-run --yes 2>/dev/null | sed -n "s/^tag to create: //p"); \
+	if [ -n "$$next" ] && git rev-parse -q --verify "refs/tags/$$next" >/dev/null; then \
+		echo "$$next already exists, but is not reachable from here."; \
+		echo "cz reads the version off the tags it can see, so it would pick a"; \
+		echo "name that is already taken. Delete the stray tag, or name the"; \
+		echo "version yourself with: $(CZ) bump <version>"; \
+		exit 1; \
+	fi; \
+	status=0; $(CZ) bump || status=$$?; \
 	if [ $$status -eq 3 ] || [ $$status -eq 21 ]; then \
 		echo "Nothing since $$(git describe --tags --abbrev=0) warrants a release."; \
 		exit 0; \
