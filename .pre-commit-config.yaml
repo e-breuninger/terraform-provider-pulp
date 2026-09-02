@@ -11,6 +11,16 @@ default_install_hook_types:
   - prepare-commit-msg
 
 repos:
+  # Commit messages gate the release: cz derives the next version, and the
+  # changelog, from the Conventional Commits type of everything since the last
+  # tag. See .cz.toml.
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.18.0
+    hooks:
+      - id: commitizen
+        stages:
+          - commit-msg
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: "v4.5.0"
     hooks:
