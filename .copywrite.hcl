@@ -21,5 +21,8 @@ project {
 
     # GoReleaser tooling configuration
     ".goreleaser.yml",
+
+    # docker certs
+    "docker/settings/certs/**",
   ]
 }
