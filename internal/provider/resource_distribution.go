@@ -25,6 +25,7 @@ type PulpDistributionModel struct {
 	ContentGuard      types.String `tfsdk:"content_guard"`
 	Namespace         types.String `tfsdk:"namespace"`
 	Private           types.Bool   `tfsdk:"private"`
+	Hidden            types.Bool   `tfsdk:"hidden"`
 	Distributions     types.List   `tfsdk:"distributions"`
 	PulpLabels        types.Map    `tfsdk:"pulp_labels"`
 }
@@ -87,6 +88,11 @@ func NewPulpDistributionResource() resource.Resource {
 				Optional: true, Computed: true, Feature: featureDistributions,
 				Description:    "The `pulp_href`s of the Distributions served through this pull-through Distribution.",
 				ListValidators: []validator.List{listvalidator.ValueStringsAre(validators.PulpHrefValidator())},
+			},
+			field{
+				Name: "hidden", Kind: fieldBool,
+				Optional: true, Computed: true,
+				Description: "If true, this Distribution will not be listed in the content app.",
 			},
 			field{
 				Name: "private", Kind: fieldBool,
