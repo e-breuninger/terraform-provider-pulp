@@ -55,6 +55,11 @@ func NewPulpRepositoryResource() resource.Resource {
 					"Older versions are deleted automatically. Unset retains every version.",
 				NumberValidators: []validator.Number{validators.NumberAtLeast(1)},
 			},
+			field{
+				Name: "autopublish", Kind: fieldBool,
+				Optional:    true,
+				Description: "Whether this Repository should automatically publish new versions.",
+			},
 			labelsField(),
 		),
 	}}
