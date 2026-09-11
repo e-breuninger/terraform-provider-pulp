@@ -19,6 +19,7 @@ type PulpRepositoryModel struct {
 	Description        types.String `tfsdk:"description"`
 	Remote             types.String `tfsdk:"remote"`
 	RetainRepoVersions types.Number `tfsdk:"retain_repo_versions"`
+	Autopublish        types.Bool   `tfsdk:"autopublish"`
 	PulpLabels         types.Map    `tfsdk:"pulp_labels"`
 }
 
@@ -54,6 +55,11 @@ func NewPulpRepositoryResource() resource.Resource {
 				Description: "How many versions of this Repository to retain. " +
 					"Older versions are deleted automatically. Unset retains every version.",
 				NumberValidators: []validator.Number{validators.NumberAtLeast(1)},
+			},
+			field{
+				Name: "autopublish", Kind: fieldBool,
+				Optional:    true,
+				Description: "Whether this Repository should automatically publish new versions.",
 			},
 			labelsField(),
 		),

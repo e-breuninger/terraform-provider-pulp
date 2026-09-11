@@ -21,5 +21,8 @@ project {
 
     # GoReleaser tooling configuration
     ".goreleaser.yml",
+
+    # docker settings
+    "docker/settings/**",
   ]
 }
