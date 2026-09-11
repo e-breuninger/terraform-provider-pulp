@@ -1,3 +1,9 @@
+## v0.5.0 (2026-09-11)
+
+### Feat
+
+- add autopublish attribute to repository
+
 ## v0.4.0 (2026-09-02)
 
 ### Feat
