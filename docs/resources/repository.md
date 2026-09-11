@@ -24,6 +24,7 @@ Manages a Pulp Repository for any content type.
 
 ### Optional
 
+- `autopublish` (Boolean) Whether this Repository should automatically publish new versions.
 - `pulp_labels` (Map of String) Key/value labels.
 - `remote` (String) The `pulp_href` of the Remote this Repository syncs from.
 - `retain_repo_versions` (Number) How many versions of this Repository to retain. Older versions are deleted automatically. Unset retains every version.
