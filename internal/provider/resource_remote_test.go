@@ -69,3 +69,56 @@ resource "pulp_remote" "npm" {
 		},
 	})
 }
+
+func TestRemoteDownloadSettings(t *testing.T) {
+	name := fmt.Sprintf("tf-acc-remote-download-%s", internal.RandomSuffix())
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{ // set
+				Config: providerConfig + fmt.Sprintf(`
+resource "pulp_remote" "download" {
+  content_type         = "npm"
+  plugin_name          = "npm"
+  url                  = "https://registry.npmjs.org/"
+  name                 = %[1]q
+  download_concurrency = 5
+  max_retries          = 0
+  rate_limit           = 10
+  total_timeout        = 300
+  connect_timeout      = 0.1
+  sock_connect_timeout = 2.5
+  sock_read_timeout    = 60
+}`, name),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("pulp_remote.download", "download_concurrency", "5"),
+					resource.TestCheckResourceAttr("pulp_remote.download", "max_retries", "0"),
+					resource.TestCheckResourceAttr("pulp_remote.download", "rate_limit", "10"),
+					resource.TestCheckResourceAttr("pulp_remote.download", "total_timeout", "300"),
+					resource.TestCheckResourceAttr("pulp_remote.download", "connect_timeout", "0.1"),
+					resource.TestCheckResourceAttr("pulp_remote.download", "sock_connect_timeout", "2.5"),
+					resource.TestCheckResourceAttr("pulp_remote.download", "sock_read_timeout", "60"),
+				),
+			},
+			{ // clear -> Pulp must receive an explicit null
+				Config: providerConfig + fmt.Sprintf(`
+resource "pulp_remote" "download" {
+  content_type = "npm"
+  plugin_name  = "npm"
+  url          = "https://registry.npmjs.org/"
+  name         = %[1]q
+}`, name),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr("pulp_remote.download", "download_concurrency"),
+					resource.TestCheckNoResourceAttr("pulp_remote.download", "max_retries"),
+					resource.TestCheckNoResourceAttr("pulp_remote.download", "rate_limit"),
+					resource.TestCheckNoResourceAttr("pulp_remote.download", "total_timeout"),
+					resource.TestCheckNoResourceAttr("pulp_remote.download", "connect_timeout"),
+					resource.TestCheckNoResourceAttr("pulp_remote.download", "sock_connect_timeout"),
+					resource.TestCheckNoResourceAttr("pulp_remote.download", "sock_read_timeout"),
+				),
+			},
+		},
+	})
+}
