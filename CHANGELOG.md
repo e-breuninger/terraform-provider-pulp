@@ -1,3 +1,20 @@
+## v0.6.0 (2026-10-05)
+
+### Feat
+
+- add download tuning attributes to remote
+- support the envvar_header content guard
+- expose prn on every resource
+
+### Fix
+
+- read numbers back at HCL precision
+- check the pull-through label type assertion
+- keep the pull-through marker label across distribution updates
+- report the registry path of pull-through distributions
+- mark repository autopublish as computed
+- send only the configured content object of a user role
+
 ## v0.5.0 (2026-09-11)
 
 ### Feat
