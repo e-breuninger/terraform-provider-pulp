@@ -76,12 +76,16 @@ func NewPulpDistributionResource() resource.Resource {
 			if !isContainerPullThrough(model) {
 				return
 			}
+			labels, ok := data["pulp_labels"].(map[string]any)
+			if !ok {
+				return
+			}
 			path := pullThroughPath(data)
 			if path == "" {
 				return
 			}
 			model.BasePath = types.StringValue(path)
-			delete(data["pulp_labels"].(map[string]any), pullThroughDistributionLabel)
+			delete(labels, pullThroughDistributionLabel)
 			model.PulpLabels = internal.LabelsOrNull(ctx, data)
 		},
 
