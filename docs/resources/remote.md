@@ -54,10 +54,17 @@ resource "pulp_remote" "maven" {
 
 ### Optional
 
+- `connect_timeout` (Number) Timeout in seconds for acquiring a connection from the pool. Unset uses aiohttp's default.
+- `download_concurrency` (Number) Total number of simultaneous connections. Unset uses Pulp's default.
+- `max_retries` (Number) Maximum number of retry attempts after a download failure. Unset uses Pulp's default of 3.
 - `password` (String, Sensitive) Password for authentication when syncing.
 - `policy` (String) Download policy: `immediate`, `on_demand`, or `streamed`. Only supported by: `ansible/collection`, `ansible/role`, `container/container`, `container/pull-through`, `deb/apt`, `file/file`, `gem/gem`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/python`, `rpm/rpm`, `rpm/uln`.
 - `pulp_labels` (Map of String) Key/value labels.
+- `rate_limit` (Number) Limits requests per second for each concurrent downloader.
+- `sock_connect_timeout` (Number) Timeout in seconds for connecting to a peer for a new connection. Unset uses aiohttp's default.
+- `sock_read_timeout` (Number) Timeout in seconds for reading a portion of data from a peer. Unset uses aiohttp's default.
 - `tls_validation` (Boolean) Whether TLS peer validation must be performed.
+- `total_timeout` (Number) Total timeout for a download in seconds. Unset uses aiohttp's default.
 - `username` (String) Username for authentication when syncing.
 
 ### Read-Only
