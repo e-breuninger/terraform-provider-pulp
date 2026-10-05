@@ -10,6 +10,7 @@ import (
 
 type PulpGroupModel struct {
 	PulpHref types.String `tfsdk:"pulp_href"`
+	Prn      types.String `tfsdk:"prn"`
 	Name     types.String `tfsdk:"name"`
 }
 
@@ -25,6 +26,7 @@ func NewPulpGroupResource() resource.Resource {
 		collection:  "groups",
 		fields: []field{
 			hrefField(),
+			prnField(),
 			{
 				Name: "name", Kind: fieldString, Required: true,
 				Description: "A unique name for this Group.",

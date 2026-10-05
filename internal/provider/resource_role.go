@@ -10,6 +10,7 @@ import (
 
 type PulpRoleModel struct {
 	PulpHref    types.String `tfsdk:"pulp_href"`
+	Prn         types.String `tfsdk:"prn"`
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
 	Permissions types.Set    `tfsdk:"permissions"`
@@ -28,6 +29,7 @@ func NewPulpRoleResource() resource.Resource {
 		collection:  "roles",
 		fields: []field{
 			hrefField(),
+			prnField(),
 			{
 				Name: "name", Kind: fieldString, Required: true,
 				Description: "A unique name for this Role.",

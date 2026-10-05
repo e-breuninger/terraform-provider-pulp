@@ -41,6 +41,7 @@ resource "pulp_contentguard" "distribution" {
 ### Read-Only
 
 - `groups` (Attributes List) The groups granted role-based access. Only rbac ContentGuards report these. (see [below for nested schema](#nestedatt--groups))
+- `prn` (String) The Pulp Resource Name (PRN).
 - `pulp_href` (String) The `pulp_href` (used as the resource identifier).
 - `users` (Attributes List) The users granted role-based access. Only rbac ContentGuards report these. (see [below for nested schema](#nestedatt--users))
 

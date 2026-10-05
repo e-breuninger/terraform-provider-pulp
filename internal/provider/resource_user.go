@@ -14,6 +14,7 @@ import (
 
 type PulpUserModel struct {
 	PulpHref  types.String `tfsdk:"pulp_href"`
+	Prn       types.String `tfsdk:"prn"`
 	ID        types.Number `tfsdk:"id"`
 	Username  types.String `tfsdk:"username"`
 	Password  types.String `tfsdk:"password"`
@@ -36,6 +37,7 @@ func NewPulpUserResource() resource.Resource {
 		collection:  "users",
 		fields: []field{
 			hrefField(),
+			prnField(),
 			{
 				Name: "id", Kind: fieldNumber,
 				Computed: true, ReadOnly: true, UseStateForUnknown: true,
