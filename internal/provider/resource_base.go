@@ -44,9 +44,10 @@ type pulpResource[M any] struct {
 	// afterBody adjusts a request body for what the field table cannot
 	// express.
 	afterBody func(body map[string]any)
-	// beforeUpdate adjusts an update body, for attributes Pulp accepts on
-	// create but rejects in a PATCH.
-	beforeUpdate func(ctx context.Context, plan, state *M, body map[string]any)
+	// beforeUpdate adjusts an update body against the object as Pulp holds
+	// it, for attributes Pulp manages itself after create. Setting it costs
+	// one extra GET per update.
+	beforeUpdate func(ctx context.Context, plan *M, current, body map[string]any)
 }
 
 var (
@@ -188,7 +189,16 @@ func (r *pulpResource[M]) Update(ctx context.Context, req resource.UpdateRequest
 	// always matches the existing href.
 	body := r.body(ctx, &plan)
 	if r.beforeUpdate != nil {
-		r.beforeUpdate(ctx, &plan, &state, body)
+		current, err := r.client.ReadByHref(ctx, r.href(&state))
+		if err != nil {
+			resp.Diagnostics.AddError("Failed to read "+r.label, err.Error())
+			return
+		}
+		if current == nil {
+			resp.Diagnostics.AddError("Failed to update "+r.label, r.href(&state)+" no longer exists.")
+			return
+		}
+		r.beforeUpdate(ctx, &plan, current, body)
 	}
 
 	result, err := r.client.Update(ctx, r.href(&state), body)

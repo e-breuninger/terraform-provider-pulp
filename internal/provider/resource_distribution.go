@@ -31,6 +31,14 @@ func isContainerPullThrough(model *PulpDistributionModel) bool {
 		containerPullThroughVariant
 }
 
+// pullThroughPath is the registry path Pulp keeps in the label of a
+// pull-through distribution, empty for one created before the label existed.
+func pullThroughPath(data map[string]any) string {
+	labels, _ := data["pulp_labels"].(map[string]any)
+	path, _ := labels[pullThroughDistributionLabel].(string)
+	return path
+}
+
 type PulpDistributionModel struct {
 	PulpHref          types.String `tfsdk:"pulp_href"`
 	Prn               types.String `tfsdk:"prn"`
@@ -68,28 +76,37 @@ func NewPulpDistributionResource() resource.Resource {
 			if !isContainerPullThrough(model) {
 				return
 			}
-			labels, ok := data["pulp_labels"].(map[string]any)
-			if !ok {
-				return
-			}
-			path, ok := labels[pullThroughDistributionLabel].(string)
-			if !ok || path == "" {
+			path := pullThroughPath(data)
+			if path == "" {
 				return
 			}
 			model.BasePath = types.StringValue(path)
-			delete(labels, pullThroughDistributionLabel)
+			delete(data["pulp_labels"].(map[string]any), pullThroughDistributionLabel)
 			model.PulpLabels = internal.LabelsOrNull(ctx, data)
 		},
 
 		// Pulp refuses to update a marked pull-through distribution's
 		// base_path. Drop the attribute while the configuration still asks
-		// for the same path, so unrelated changes apply; send it when it
-		// changed, so Pulp's own validation error reaches the user.
-		beforeUpdate: func(_ context.Context, plan, state *PulpDistributionModel, body map[string]any) {
-			if isContainerPullThrough(plan) && plan.BasePath.Equal(state.BasePath) {
+		// for the marked path, so unrelated changes apply, and send it when
+		// it changed, so Pulp's own validation error reaches the user.
+		// pulp_labels replaces every label, so carry the marker over or
+		// Pulp loses the registry path.
+		beforeUpdate: func(_ context.Context, plan *PulpDistributionModel, current, body map[string]any) {
+			if !isContainerPullThrough(plan) {
+				return
+			}
+			path := pullThroughPath(current)
+			if path == "" {
+				return
+			}
+			if plan.BasePath.ValueString() == path {
 				delete(body, "base_path")
 			}
+			if labels, ok := body["pulp_labels"].(map[string]string); ok {
+				labels[pullThroughDistributionLabel] = path
+			}
 		},
+
 		fields: variantResourceFields(distributionFeatures,
 			field{
 				Name: "name", Kind: fieldString, Required: true,
