@@ -334,3 +334,58 @@ func TestUserIDPath(t *testing.T) {
 }
 
 func bigFloat(v float64) *big.Float { return big.NewFloat(v) }
+
+// TestUserRoleBodySendsOneContentObject guards against sending the unset one
+// of content_object and content_object_prn: Pulp lets the later one win, even
+// as null, which dropped the object from the assignment. With neither set,
+// Pulp wants an explicit null.
+func TestUserRoleBodySendsOneContentObject(t *testing.T) {
+	ctx := context.Background()
+	r, ok := NewPulpUserRoleResource().(*pulpUserRoleResource)
+	if !ok {
+		t.Fatal("NewPulpUserRoleResource must return a *pulpUserRoleResource")
+	}
+	href := "/pulp/api/v3/repositories/file/file/0190f3c2-0000-7000-8000-000000000000/"
+	prn := "prn:file.filerepository:0190f3c2-0000-7000-8000-000000000000"
+
+	for _, tc := range []struct {
+		set, absent string
+		plan        PulpUserRoleModel
+		want        string
+	}{
+		{
+			set: "content_object", absent: "content_object_prn", want: href,
+			plan: PulpUserRoleModel{ContentObject: types.StringValue(href), ContentObjectPrn: types.StringNull()},
+		},
+		{
+			set: "content_object_prn", absent: "content_object", want: prn,
+			plan: PulpUserRoleModel{ContentObject: types.StringNull(), ContentObjectPrn: types.StringValue(prn)},
+		},
+	} {
+		t.Run(tc.set, func(t *testing.T) {
+			tc.plan.Role = types.StringValue("file.filerepository_owner")
+			tc.plan.Domain = types.StringUnknown()
+			body := r.body(ctx, &tc.plan)
+			if got := body[tc.set]; got != tc.want {
+				t.Errorf("%s = %#v, want %q", tc.set, got, tc.want)
+			}
+			if v, ok := body[tc.absent]; ok {
+				t.Errorf("%s must be left out of the body, got %#v", tc.absent, v)
+			}
+		})
+	}
+
+	t.Run("neither", func(t *testing.T) {
+		plan := PulpUserRoleModel{
+			Role:          types.StringValue("file.filerepository_owner"),
+			ContentObject: types.StringUnknown(), ContentObjectPrn: types.StringUnknown(),
+			Domain: types.StringUnknown(),
+		}
+		body := r.body(ctx, &plan)
+		// Pulp rejects a body without either key.
+		want := map[string]any{"role": "file.filerepository_owner", "content_object": nil}
+		if !reflect.DeepEqual(body, want) {
+			t.Errorf("got %#v, want %#v", body, want)
+		}
+	})
+}

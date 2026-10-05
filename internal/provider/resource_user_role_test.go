@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -88,6 +89,59 @@ func TestUserRoleResource(t *testing.T) {
 				),
 			},
 			// Delete testing automatically occurs in TestCase
+		},
+	})
+}
+
+// TestUserRoleContentObjectResource sets one of content_object and
+// content_object_prn and expects Pulp to fill in the other.
+func TestUserRoleContentObjectResource(t *testing.T) {
+	const config = `
+			resource "pulp_repository" "owned" {
+				content_type = "file"
+				description  = "Owned file repository"
+				plugin_name  = "file"
+				name         = "user-role-owned"
+			}
+
+			resource "pulp_user" "owner" {
+				username = "user-role-owner"
+				password = "supersecret"
+			}
+			`
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + config + `
+			resource "pulp_user_role" "by_href" {
+				role           = "file.filerepository_owner"
+				user_id        = pulp_user.owner.id
+				content_object = pulp_repository.owned.pulp_href
+			}
+			`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrPair("pulp_user_role.by_href", "content_object",
+						"pulp_repository.owned", "pulp_href"),
+					resource.TestMatchResourceAttr("pulp_user_role.by_href", "content_object_prn",
+						regexp.MustCompile(`^prn:file\.filerepository:`)),
+				),
+			},
+			{
+				Config: providerConfig + config + `
+			resource "pulp_user_role" "by_prn" {
+				role               = "file.filerepository_viewer"
+				user_id            = pulp_user.owner.id
+				content_object_prn = format("prn:file.filerepository:%s",
+					element(split("/", trimsuffix(pulp_repository.owned.pulp_href, "/")), 7))
+			}
+			`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrPair("pulp_user_role.by_prn", "content_object",
+						"pulp_repository.owned", "pulp_href"),
+				),
+			},
 		},
 	})
 }

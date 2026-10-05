@@ -56,8 +56,23 @@ func NewPulpUserRoleResource() resource.Resource {
 			}
 		},
 
+		// Pulp insists on one of content_object and content_object_prn,
+		// with an explicit null for a domain or model level Role.
+		afterBody: func(body map[string]any) {
+			_, href := body["content_object"]
+			_, prn := body["content_object_prn"]
+			if !href && !prn {
+				body["content_object"] = nil
+			}
+		},
+
 		// Pulp has no PATCH for a role assignment, so every attribute
 		// requires replacement and Terraform does the drop-and-add itself.
+		//
+		// content_object and content_object_prn both write the same object,
+		// the later one winning even when null. They are Computed so the unset
+		// one stays unknown at create, is left out of the body, and is read
+		// back from Pulp, which always returns both.
 		fields: []field{
 			hrefField(),
 			{
@@ -71,13 +86,15 @@ func NewPulpUserRoleResource() resource.Resource {
 			},
 			{
 				Name: "content_object", Kind: fieldString,
-				Optional: true, RequiresReplace: true, Nullable: true, EmptyIsNull: true,
-				Description: "The `pulp_href` of the object this Role applies to. Leave unset to grant the Role at domain or model level.",
+				Optional: true, Computed: true, RequiresReplace: true, EmptyIsNull: true,
+				Description: "The `pulp_href` of the object this Role applies to. Set this or `content_object_prn`, " +
+					"Pulp fills in the other. Leave both unset to grant the Role at domain or model level.",
 			},
 			{
 				Name: "content_object_prn", Kind: fieldString,
-				Optional: true, RequiresReplace: true, Nullable: true, EmptyIsNull: true,
-				Description: "The PRN of the object this Role applies to. Leave unset to grant the Role at domain or model level.",
+				Optional: true, Computed: true, RequiresReplace: true, EmptyIsNull: true,
+				Description: "The PRN of the object this Role applies to. Set this or `content_object`, " +
+					"Pulp fills in the other. Leave both unset to grant the Role at domain or model level.",
 			},
 			{
 				Name: "domain", Kind: fieldString,
