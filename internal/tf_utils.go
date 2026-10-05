@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -46,10 +47,17 @@ func BoolOrNull(data map[string]any, key string) types.Bool {
 // NumberOrNull returns data[key] as a types.Number, or null if absent or not
 // a number.
 func NumberOrNull(data map[string]any, key string) types.Number {
-	if v, ok := data[key].(float64); ok {
-		return types.NumberValue(big.NewFloat(v))
+	v, ok := data[key].(float64)
+	if !ok {
+		return types.NumberNull()
 	}
-	return types.NumberNull()
+	// Parse the shortest decimal at HCL's 512-bit precision, so a configured
+	// 0.1 compares equal to the 0.1 Pulp returns.
+	f, _, err := big.ParseFloat(strconv.FormatFloat(v, 'g', -1, 64), 10, 512, big.ToNearestEven)
+	if err != nil {
+		return types.NumberNull()
+	}
+	return types.NumberValue(f)
 }
 
 // StringList returns data[key] as a types.List of strings, or a null list.
