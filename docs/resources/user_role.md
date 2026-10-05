@@ -45,8 +45,8 @@ resource "pulp_user_role" "breuninger_filerepository" {
 
 ### Optional
 
-- `content_object` (String) The `pulp_href` of the object this Role applies to. Leave unset to grant the Role at domain or model level.
-- `content_object_prn` (String) The PRN of the object this Role applies to. Leave unset to grant the Role at domain or model level.
+- `content_object` (String) The `pulp_href` of the object this Role applies to. Set this or `content_object_prn`, Pulp fills in the other. Leave both unset to grant the Role at domain or model level.
+- `content_object_prn` (String) The PRN of the object this Role applies to. Set this or `content_object`, Pulp fills in the other. Leave both unset to grant the Role at domain or model level.
 - `domain` (String) The domain this Role applies to. Mutually exclusive with `content_object`.
 
 ### Read-Only

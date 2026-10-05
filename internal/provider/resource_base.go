@@ -41,6 +41,9 @@ type pulpResource[M any] struct {
 	// afterHydrate derives values that are not read straight from the
 	// response.
 	afterHydrate func(ctx context.Context, data map[string]any, model *M)
+	// afterBody adjusts a request body for what the field table cannot
+	// express.
+	afterBody func(body map[string]any)
 }
 
 var (
@@ -103,13 +106,18 @@ func (r *pulpResource[M]) path(model *M) string {
 // body renders the plan into a request body, gating attributes on the
 // featureSet.
 func (r *pulpResource[M]) body(ctx context.Context, model *M) map[string]any {
-	if r.features == nil {
-		return buildBody(ctx, r.fields, model, nil)
+	var supports func(feature string) bool
+	if r.features != nil {
+		contentType, pluginName := r.variant(model)
+		supports = func(feature string) bool {
+			return r.features.supports(contentType, pluginName, feature)
+		}
 	}
-	contentType, pluginName := r.variant(model)
-	return buildBody(ctx, r.fields, model, func(feature string) bool {
-		return r.features.supports(contentType, pluginName, feature)
-	})
+	body := buildBody(ctx, r.fields, model, supports)
+	if r.afterBody != nil {
+		r.afterBody(body)
+	}
+	return body
 }
 
 func (r *pulpResource[M]) hydrate(ctx context.Context, data map[string]any, model *M) {
