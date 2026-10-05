@@ -26,15 +26,10 @@ type PulpContentGuardModel struct {
 	// Composite only.
 	Guards types.List `tfsdk:"guards"`
 
-	// Header and EnvVarHeader only.
-	HeaderName types.String `tfsdk:"header_name"`
-
 	// Header only.
+	HeaderName  types.String `tfsdk:"header_name"`
 	HeaderValue types.String `tfsdk:"header_value"`
 	JqFilter    types.String `tfsdk:"jq_filter"`
-
-	// EnvVarHeader only.
-	EnvVar types.String `tfsdk:"env_var"`
 
 	// Rbac only. Pulp computes these from pulp_object_role assignments.
 	Users  types.List `tfsdk:"users"`
@@ -87,12 +82,6 @@ func NewPulpContentGuardResource() resource.Resource {
 				Name: "jq_filter", Kind: fieldString,
 				Optional: true, Feature: featureJqFilter,
 				Description: "A jq filter applied to the decoded header value.",
-			},
-			field{
-				Name: "env_var", Kind: fieldString,
-				Optional: true, Feature: featureEnvVar,
-				Description: "The content-app environment variable holding the secret the header must carry, " +
-					"Base64-encoded. Pulp only accepts variables listed in `ENVVAR_HEADER_CONTENT_GUARD_ALLOWED_VARS`.",
 			},
 			field{
 				Name: "users", Kind: fieldObjectList,
