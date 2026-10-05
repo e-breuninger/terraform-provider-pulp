@@ -66,4 +66,5 @@ resource "pulp_distribution" "docker" {
 ### Read-Only
 
 - `namespace` (String) The namespace of this Distribution. Only container Distributions have one. Only supported by: `container/container`, `container/pull-through`.
+- `prn` (String) The Pulp Resource Name (PRN).
 - `pulp_href` (String) The `pulp_href` (used as the resource identifier).

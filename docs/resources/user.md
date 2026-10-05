@@ -43,4 +43,5 @@ resource "pulp_user" "breuninger" {
 ### Read-Only
 
 - `id` (Number) The Pulp user ID.
+- `prn` (String) The Pulp Resource Name (PRN).
 - `pulp_href` (String) The `pulp_href` (used as the resource identifier).

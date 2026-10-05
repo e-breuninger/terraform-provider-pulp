@@ -16,6 +16,7 @@ import (
 
 type PulpUserRoleModel struct {
 	PulpHref         types.String `tfsdk:"pulp_href"`
+	Prn              types.String `tfsdk:"prn"`
 	UserID           types.Number `tfsdk:"user_id"`
 	Role             types.String `tfsdk:"role"`
 	ContentObject    types.String `tfsdk:"content_object"`
@@ -75,6 +76,7 @@ func NewPulpUserRoleResource() resource.Resource {
 		// back from Pulp, which always returns both.
 		fields: []field{
 			hrefField(),
+			prnField(),
 			{
 				Name: "user_id", Kind: fieldNumber,
 				Required: true, RequiresReplace: true, Local: true,

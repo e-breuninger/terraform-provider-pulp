@@ -12,6 +12,7 @@ import (
 
 type PulpRemoteModel struct {
 	PulpHref      types.String `tfsdk:"pulp_href"`
+	Prn           types.String `tfsdk:"prn"`
 	ContentType   types.String `tfsdk:"content_type"`
 	PluginName    types.String `tfsdk:"plugin_name"`
 	Name          types.String `tfsdk:"name"`

@@ -124,8 +124,10 @@ func TestUserRoleContentObjectResource(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrPair("pulp_user_role.by_href", "content_object",
 						"pulp_repository.owned", "pulp_href"),
-					resource.TestMatchResourceAttr("pulp_user_role.by_href", "content_object_prn",
+					resource.TestMatchResourceAttr("pulp_repository.owned", "prn",
 						regexp.MustCompile(`^prn:file\.filerepository:`)),
+					resource.TestCheckResourceAttrPair("pulp_user_role.by_href", "content_object_prn",
+						"pulp_repository.owned", "prn"),
 				),
 			},
 			{
@@ -133,8 +135,7 @@ func TestUserRoleContentObjectResource(t *testing.T) {
 			resource "pulp_user_role" "by_prn" {
 				role               = "file.filerepository_viewer"
 				user_id            = pulp_user.owner.id
-				content_object_prn = format("prn:file.filerepository:%s",
-					element(split("/", trimsuffix(pulp_repository.owned.pulp_href, "/")), 7))
+				content_object_prn = pulp_repository.owned.prn
 			}
 			`,
 				Check: resource.ComposeAggregateTestCheckFunc(

@@ -62,4 +62,5 @@ resource "pulp_remote" "maven" {
 
 ### Read-Only
 
+- `prn` (String) The Pulp Resource Name (PRN).
 - `pulp_href` (String) The `pulp_href` (used as the resource identifier).

@@ -436,6 +436,16 @@ func hrefField() field {
 	}
 }
 
+// prnField is the Pulp Resource Name, which other resources accept in place
+// of a pulp_href, such as content_object_prn of pulp_user_role.
+func prnField() field {
+	return field{
+		Name: "prn", Kind: fieldString,
+		Computed: true, ReadOnly: true, UseStateForUnknown: true,
+		Description: "The Pulp Resource Name (PRN).",
+	}
+}
+
 // labelsField is shared by remotes, repositories and distributions.
 func labelsField() field {
 	return field{
@@ -466,8 +476,8 @@ func variantFields(f featureSet) []field {
 	}
 }
 
-// variantResourceFields prefixes a resource's own attributes with pulp_href
-// and the content_type/plugin_name pair.
+// variantResourceFields prefixes a resource's own attributes with pulp_href,
+// prn and the content_type/plugin_name pair.
 func variantResourceFields(f featureSet, own ...field) []field {
-	return slices.Concat([]field{hrefField()}, variantFields(f), own)
+	return slices.Concat([]field{hrefField(), prnField()}, variantFields(f), own)
 }

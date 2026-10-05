@@ -51,4 +51,5 @@ resource "pulp_user_role" "breuninger_filerepository" {
 
 ### Read-Only
 
+- `prn` (String) The Pulp Resource Name (PRN).
 - `pulp_href` (String) The `pulp_href` (used as the resource identifier).
