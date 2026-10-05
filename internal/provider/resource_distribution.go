@@ -4,6 +4,9 @@
 package provider
 
 import (
+	"context"
+
+	"github.com/e-breuninger/terraform-provider-pulp/internal"
 	"github.com/e-breuninger/terraform-provider-pulp/internal/validators"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
@@ -11,6 +14,22 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+// pulp_container keeps a pull-through distribution's registry path in a label
+// and stores a generated UUID in base_path, so that the parent does not
+// overlap the child distributions it creates on pull. See
+// https://github.com/pulp/pulp_container/issues/2494.
+const (
+	containerPullThroughVariant  = "container/pull-through"
+	pullThroughDistributionLabel = "pulp_container.pull_through"
+)
+
+// isContainerPullThrough reports whether a model addresses the one variant
+// that rewrites base_path server-side.
+func isContainerPullThrough(model *PulpDistributionModel) bool {
+	return variantKey(model.ContentType.ValueString(), model.PluginName.ValueString()) ==
+		containerPullThroughVariant
+}
 
 type PulpDistributionModel struct {
 	PulpHref          types.String `tfsdk:"pulp_href"`
@@ -41,6 +60,36 @@ func NewPulpDistributionResource() resource.Resource {
 		description: "Manages a Pulp Distribution for any content type.",
 		collection:  "distributions",
 		features:    distributionFeatures,
+
+		// Report the registry path the configuration asked for rather than
+		// the UUID Pulp put in base_path, and keep the bookkeeping label out
+		// of pulp_labels so it does not read as drift.
+		afterHydrate: func(ctx context.Context, data map[string]any, model *PulpDistributionModel) {
+			if !isContainerPullThrough(model) {
+				return
+			}
+			labels, ok := data["pulp_labels"].(map[string]any)
+			if !ok {
+				return
+			}
+			path, ok := labels[pullThroughDistributionLabel].(string)
+			if !ok || path == "" {
+				return
+			}
+			model.BasePath = types.StringValue(path)
+			delete(labels, pullThroughDistributionLabel)
+			model.PulpLabels = internal.LabelsOrNull(ctx, data)
+		},
+
+		// Pulp refuses to update a marked pull-through distribution's
+		// base_path. Drop the attribute while the configuration still asks
+		// for the same path, so unrelated changes apply; send it when it
+		// changed, so Pulp's own validation error reaches the user.
+		beforeUpdate: func(_ context.Context, plan, state *PulpDistributionModel, body map[string]any) {
+			if isContainerPullThrough(plan) && plan.BasePath.Equal(state.BasePath) {
+				delete(body, "base_path")
+			}
+		},
 		fields: variantResourceFields(distributionFeatures,
 			field{
 				Name: "name", Kind: fieldString, Required: true,
