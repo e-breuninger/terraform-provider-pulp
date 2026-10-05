@@ -85,12 +85,12 @@ func NewPulpDistributionResource() resource.Resource {
 			model.PulpLabels = internal.LabelsOrNull(ctx, data)
 		},
 
-		// Pulp refuses to update a marked pull-through distribution's
-		// base_path. Drop the attribute while the configuration still asks
-		// for the marked path, so unrelated changes apply, and send it when
-		// it changed, so Pulp's own validation error reaches the user.
-		// pulp_labels replaces every label, so carry the marker over or
-		// Pulp loses the registry path.
+		// Pull-through distributions keep their real path in a label and a UUID in
+		// base_path, and Pulp refuses to change base_path. So:
+		//   - leave base_path out of the update unless the user changed it. A changed
+		//     path is still sent so Pulp can reject it with a clear error.
+		//   - add the label back to pulp_labels, since Pulp replaces all labels on
+		//     update and would otherwise drop it.
 		beforeUpdate: func(_ context.Context, plan *PulpDistributionModel, current, body map[string]any) {
 			if !isContainerPullThrough(plan) {
 				return
