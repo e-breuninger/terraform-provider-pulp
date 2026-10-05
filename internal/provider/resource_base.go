@@ -44,6 +44,9 @@ type pulpResource[M any] struct {
 	// afterBody adjusts a request body for what the field table cannot
 	// express.
 	afterBody func(body map[string]any)
+	// beforeUpdate adjusts an update body, for attributes Pulp accepts on
+	// create but rejects in a PATCH.
+	beforeUpdate func(ctx context.Context, plan, state *M, body map[string]any)
 }
 
 var (
@@ -183,7 +186,12 @@ func (r *pulpResource[M]) Update(ctx context.Context, req resource.UpdateRequest
 
 	// content_type and plugin_name require replacement, so the plan's variant
 	// always matches the existing href.
-	result, err := r.client.Update(ctx, r.href(&state), r.body(ctx, &plan))
+	body := r.body(ctx, &plan)
+	if r.beforeUpdate != nil {
+		r.beforeUpdate(ctx, &plan, &state, body)
+	}
+
+	result, err := r.client.Update(ctx, r.href(&state), body)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to update "+r.label, err.Error())
 		return
