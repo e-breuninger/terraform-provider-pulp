@@ -59,7 +59,7 @@ func NewPulpRepositoryResource() resource.Resource {
 			},
 			field{
 				Name: "autopublish", Kind: fieldBool,
-				Optional:    true,
+				Optional: true, Computed: true,
 				Description: "Whether this Repository should automatically publish new versions.",
 			},
 			labelsField(),
