@@ -54,6 +54,9 @@ resource "pulp_remote" "maven" {
 
 ### Optional
 
+- `ca_cert` (String) A PEM encoded CA certificate used to validate the server certificate presented by the remote server.
+- `client_cert` (String) A PEM encoded client certificate used for authentication.
+- `client_key` (String, Sensitive) A PEM encoded private key used for authentication.
 - `connect_timeout` (Number) Timeout in seconds for acquiring a connection from the pool. Unset uses aiohttp's default.
 - `download_concurrency` (Number) Total number of simultaneous connections. Unset uses Pulp's default.
 - `max_retries` (Number) Maximum number of retry attempts after a download failure. Unset uses Pulp's default of 3.

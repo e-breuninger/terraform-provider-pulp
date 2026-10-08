@@ -20,6 +20,9 @@ type PulpRemoteModel struct {
 	Url           types.String `tfsdk:"url"`
 	Policy        types.String `tfsdk:"policy"`
 	TlsValidation types.Bool   `tfsdk:"tls_validation"`
+	CaCert        types.String `tfsdk:"ca_cert"`
+	ClientCert    types.String `tfsdk:"client_cert"`
+	ClientKey     types.String `tfsdk:"client_key"`
 	Username      types.String `tfsdk:"username"`
 	Password      types.String `tfsdk:"password"`
 	PulpLabels    types.Map    `tfsdk:"pulp_labels"`
@@ -66,7 +69,25 @@ func NewPulpRemoteResource() resource.Resource {
 				Optional: true, Computed: true,
 				Description: "Whether TLS peer validation must be performed.",
 			},
+			field{
+				Name: "ca_cert", Kind: fieldString,
+				Optional: true, Nullable: true, Certificate: true,
+				Description:      "A PEM encoded CA certificate used to validate the server certificate presented by the remote server.",
+				StringValidators: []validator.String{stringvalidator.LengthAtLeast(1)},
+			},
+			field{
+				Name: "client_cert", Kind: fieldString,
+				Optional: true, Nullable: true, Certificate: true,
+				Description:      "A PEM encoded client certificate used for authentication.",
+				StringValidators: []validator.String{stringvalidator.LengthAtLeast(1)},
+			},
 			// Write-only: Pulp never reports credentials back.
+			field{
+				Name: "client_key", Kind: fieldString,
+				Optional: true, Nullable: true, Sensitive: true, WriteOnly: true,
+				Description:      "A PEM encoded private key used for authentication.",
+				StringValidators: []validator.String{stringvalidator.LengthAtLeast(1)},
+			},
 			field{
 				Name: "username", Kind: fieldString,
 				Optional: true, WriteOnly: true,
