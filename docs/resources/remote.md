@@ -69,6 +69,7 @@ resource "pulp_remote" "internal" {
 - `client_key` (String, Sensitive) A PEM encoded private key used for authentication.
 - `connect_timeout` (Number) Timeout in seconds for acquiring a connection from the pool. Unset uses aiohttp's default.
 - `download_concurrency` (Number) Total number of simultaneous connections. Unset uses Pulp's default.
+- `git_ref` (String) The git ref (branch, tag, or commit hash) to sync from. Unset uses Pulp's default. Only supported by: `ansible/git`, `file/git`.
 - `max_retries` (Number) Maximum number of retry attempts after a download failure. Unset uses Pulp's default of 3.
 - `password` (String, Sensitive) Password for authentication when syncing.
 - `policy` (String) Download policy: `immediate`, `on_demand`, or `streamed`. Only supported by: `ansible/collection`, `ansible/role`, `container/container`, `container/pull-through`, `deb/apt`, `file/file`, `gem/gem`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/python`, `rpm/rpm`, `rpm/uln`.
