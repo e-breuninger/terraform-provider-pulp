@@ -389,3 +389,37 @@ func TestUserRoleBodySendsOneContentObject(t *testing.T) {
 		}
 	})
 }
+
+func TestCertificateKeepsConfiguredPEM(t *testing.T) {
+	ctx := context.Background()
+	const cert = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----"
+	configured := "# root CA\n" + cert + "  \n\n" + cert
+	stored := cert + "\n" + cert + "\n"
+
+	if got := pemCertificates(configured); got != stored {
+		t.Fatalf("pemCertificates() = %q, want %q", got, stored)
+	}
+
+	fields := []field{{Name: "ca_cert", Kind: fieldString, Optional: true, Certificate: true}}
+	type model struct {
+		CaCert types.String `tfsdk:"ca_cert"`
+	}
+
+	m := model{CaCert: types.StringValue(configured)}
+	hydrateModel(ctx, fields, map[string]any{"ca_cert": stored}, &m)
+	if got := m.CaCert.ValueString(); got != configured {
+		t.Errorf("ca_cert = %q, the configured PEM must be kept when Pulp only normalized it", got)
+	}
+
+	other := "-----BEGIN CERTIFICATE-----\nMIIC\n-----END CERTIFICATE-----\n"
+	hydrateModel(ctx, fields, map[string]any{"ca_cert": other}, &m)
+	if got := m.CaCert.ValueString(); got != other {
+		t.Errorf("ca_cert = %q, a changed certificate in Pulp must show as drift", got)
+	}
+
+	m = model{CaCert: types.StringNull()}
+	hydrateModel(ctx, fields, map[string]any{"ca_cert": nil}, &m)
+	if !m.CaCert.IsNull() {
+		t.Errorf("ca_cert = %v, want null", m.CaCert)
+	}
+}

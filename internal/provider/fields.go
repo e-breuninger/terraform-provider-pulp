@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strings"
 
 	"github.com/e-breuninger/terraform-provider-pulp/internal"
 
@@ -44,6 +45,10 @@ type field struct {
 	Nullable  bool // Pulp accepts an explicit null, so clearing the config clears it.
 	// EmptyIsNull reads Pulp's "" for an unset field back as null.
 	EmptyIsNull bool
+	// Certificate marks a PEM that Pulp stores without the text around its
+	// certificate blocks. The configured value is kept when Pulp's copy only
+	// differs by that.
+	Certificate bool
 	// Local is not a Pulp field: content_type and plugin_name pick the
 	// endpoint rather than being stored on the resource.
 	Local bool
@@ -315,6 +320,10 @@ func hydrateModel(ctx context.Context, fs []field, data map[string]any, model an
 		}
 		switch f.Kind {
 		case fieldString:
+			current, _ := valueOf[types.String](v)
+			if f.Certificate && pemCertificates(current.ValueString()) == internal.StrOrNull(data, f.Name).ValueString() {
+				continue
+			}
 			if f.EmptyIsNull {
 				v.Set(reflect.ValueOf(internal.StrOrNullNonEmpty(data, f.Name)))
 			} else {
@@ -334,6 +343,26 @@ func hydrateModel(ctx context.Context, fs []field, data map[string]any, model an
 			v.Set(reflect.ValueOf(objectList(data, f)))
 		}
 	}
+}
+
+// pemCertificates mirrors Pulp's _validate_certificate: it keeps only the
+// certificate blocks, each trimmed, joined by and ending in a newline.
+func pemCertificates(pem string) string {
+	var certs []string
+	var cert string
+	for _, line := range strings.Split(pem, "\n") {
+		if strings.Contains(line, "-----BEGIN CERTIFICATE-----") || cert != "" {
+			cert += line + "\n"
+		}
+		if strings.Contains(line, "-----END CERTIFICATE-----") {
+			certs = append(certs, strings.TrimSpace(cert))
+			cert = ""
+		}
+	}
+	if len(certs) == 0 {
+		return ""
+	}
+	return strings.Join(certs, "\n") + "\n"
 }
 
 // objectList converts a list of Pulp objects into a types.List, following the
