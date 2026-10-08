@@ -1,3 +1,10 @@
+## v0.7.0 (2026-10-08)
+
+### Feat
+
+- add git_ref to the git remotes
+- add ca_cert, client_cert and client_key to remote
+
 ## v0.6.0 (2026-10-05)
 
 ### Feat
