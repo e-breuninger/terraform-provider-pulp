@@ -25,3 +25,13 @@ resource "pulp_remote" "maven" {
   plugin_name  = "maven"
   url          = "https://repo1.maven.org/maven2/"
 }
+
+# Trust a mirror signed by an internal CA. file() reads the PEM on the
+# machine running Terraform, not on the Pulp server.
+resource "pulp_remote" "internal" {
+  name         = "internal-pypi"
+  content_type = "python"
+  plugin_name  = "python"
+  url          = "https://pypi.example.internal/"
+  ca_cert      = file("${path.module}/internal-ca.pem")
+}
