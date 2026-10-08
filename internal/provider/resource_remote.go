@@ -19,6 +19,7 @@ type PulpRemoteModel struct {
 	Name          types.String `tfsdk:"name"`
 	Url           types.String `tfsdk:"url"`
 	Policy        types.String `tfsdk:"policy"`
+	GitRef        types.String `tfsdk:"git_ref"`
 	TlsValidation types.Bool   `tfsdk:"tls_validation"`
 	CaCert        types.String `tfsdk:"ca_cert"`
 	ClientCert    types.String `tfsdk:"client_cert"`
@@ -65,6 +66,11 @@ func NewPulpRemoteResource() resource.Resource {
 				},
 			},
 			field{
+				Name: "git_ref", Kind: fieldString,
+				Optional: true, Computed: true, Feature: featureGitRef,
+				Description: "The git ref (branch, tag, or commit hash) to sync from. Unset uses Pulp's default.",
+			},
+			field{
 				Name: "tls_validation", Kind: fieldBool,
 				Optional: true, Computed: true,
 				Description: "Whether TLS peer validation must be performed.",
@@ -99,31 +105,48 @@ func NewPulpRemoteResource() resource.Resource {
 				Description: "Password for authentication when syncing.",
 			},
 			labelsField(),
-			downloadField("download_concurrency", 1,
-				"Total number of simultaneous connections. Unset uses Pulp's default."),
-			downloadField("max_retries", 0,
-				"Maximum number of retry attempts after a download failure. Unset uses Pulp's default of 3."),
-			downloadField("rate_limit", 0,
-				"Limits requests per second for each concurrent downloader."),
-			downloadField("total_timeout", 0,
-				"Total timeout for a download in seconds. Unset uses aiohttp's default."),
-			downloadField("connect_timeout", 0,
-				"Timeout in seconds for acquiring a connection from the pool. Unset uses aiohttp's default."),
-			downloadField("sock_connect_timeout", 0,
-				"Timeout in seconds for connecting to a peer for a new connection. Unset uses aiohttp's default."),
-			downloadField("sock_read_timeout", 0,
-				"Timeout in seconds for reading a portion of data from a peer. Unset uses aiohttp's default."),
+			field{
+				Name: "download_concurrency", Kind: fieldNumber,
+				Optional: true, Nullable: true,
+				Description:      "Total number of simultaneous connections. Unset uses Pulp's default.",
+				NumberValidators: []validator.Number{validators.NumberAtLeast(1)},
+			},
+			field{
+				Name: "max_retries", Kind: fieldNumber,
+				Optional: true, Nullable: true,
+				Description:      "Maximum number of retry attempts after a download failure. Unset uses Pulp's default of 3.",
+				NumberValidators: []validator.Number{validators.NumberAtLeast(0)},
+			},
+			field{
+				Name: "rate_limit", Kind: fieldNumber,
+				Optional: true, Nullable: true,
+				Description:      "Limits requests per second for each concurrent downloader.",
+				NumberValidators: []validator.Number{validators.NumberAtLeast(0)},
+			},
+			field{
+				Name: "total_timeout", Kind: fieldNumber,
+				Optional: true, Nullable: true,
+				Description:      "Total timeout for a download in seconds. Unset uses aiohttp's default.",
+				NumberValidators: []validator.Number{validators.NumberAtLeast(0)},
+			},
+			field{
+				Name: "connect_timeout", Kind: fieldNumber,
+				Optional: true, Nullable: true,
+				Description:      "Timeout in seconds for acquiring a connection from the pool. Unset uses aiohttp's default.",
+				NumberValidators: []validator.Number{validators.NumberAtLeast(0)},
+			},
+			field{
+				Name: "sock_connect_timeout", Kind: fieldNumber,
+				Optional: true, Nullable: true,
+				Description:      "Timeout in seconds for connecting to a peer for a new connection. Unset uses aiohttp's default.",
+				NumberValidators: []validator.Number{validators.NumberAtLeast(0)},
+			},
+			field{
+				Name: "sock_read_timeout", Kind: fieldNumber,
+				Optional: true, Nullable: true,
+				Description:      "Timeout in seconds for reading a portion of data from a peer. Unset uses aiohttp's default.",
+				NumberValidators: []validator.Number{validators.NumberAtLeast(0)},
+			},
 		),
 	}}
-}
-
-// downloadField declares a download tuning setting. Pulp accepts an explicit
-// null, so removing it from the config restores the default.
-func downloadField(name string, minimum int64, description string) field {
-	return field{
-		Name: name, Kind: fieldNumber,
-		Optional: true, Nullable: true,
-		Description:      description,
-		NumberValidators: []validator.Number{validators.NumberAtLeast(minimum)},
-	}
 }

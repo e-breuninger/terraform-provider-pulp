@@ -28,6 +28,7 @@ const (
 	featureCaCertificate = "ca_certificate"
 	featureContentGuard  = "content_guard"
 	featureDistributions = "distributions"
+	featureGitRef        = "git_ref"
 	featureGuards        = "guards"
 	featureHeaderName    = "header_name"
 	featureHeaderValue   = "header_value"
@@ -122,16 +123,17 @@ var distributionFeatures = featureSet{
 }
 
 // remoteFeatures: every variant accepts url, tls_validation, username,
-// password and pulp_labels; only the git-backed ones lack a policy.
+// password and pulp_labels. Only the git-backed ones lack a policy and take a
+// git_ref.
 var remoteFeatures = featureSet{
 	"ansible/collection":        {featurePolicy: true},
-	"ansible/git":               {},
+	"ansible/git":               {featureGitRef: true},
 	"ansible/role":              {featurePolicy: true},
 	"container/container":       {featurePolicy: true},
 	"container/pull-through":    {featurePolicy: true},
 	"deb/apt":                   {featurePolicy: true},
 	"file/file":                 {featurePolicy: true},
-	"file/git":                  {},
+	"file/git":                  {featureGitRef: true},
 	"gem/gem":                   {featurePolicy: true},
 	"hugging_face/hugging-face": {featurePolicy: true},
 	"maven/maven":               {featurePolicy: true},

@@ -5,6 +5,7 @@ package provider
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/e-breuninger/terraform-provider-pulp/internal"
@@ -118,6 +119,66 @@ resource "pulp_remote" "download" {
 					resource.TestCheckNoResourceAttr("pulp_remote.download", "sock_connect_timeout"),
 					resource.TestCheckNoResourceAttr("pulp_remote.download", "sock_read_timeout"),
 				),
+			},
+		},
+	})
+}
+
+func TestRemoteFileGit(t *testing.T) {
+	name := fmt.Sprintf("tf-acc-remote-git-%s", internal.RandomSuffix())
+	config := func(gitRef string) string {
+		return providerConfig + fmt.Sprintf(`
+resource "pulp_remote" "git" {
+  content_type = "file"
+  plugin_name  = "git"
+  url          = "https://github.com/pulp/pulp-glue.git"
+  name         = %[1]q
+  %[2]s
+}`, name, gitRef)
+	}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{ // Pulp defaults the ref
+				Config: config(""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("pulp_remote.git", "git_ref", "HEAD"),
+					resource.TestCheckNoResourceAttr("pulp_remote.git", "policy"),
+				),
+			},
+			{
+				Config: config(`git_ref = "main"`),
+				Check:  resource.TestCheckResourceAttr("pulp_remote.git", "git_ref", "main"),
+			},
+			{
+				ResourceName:                         "pulp_remote.git",
+				ImportState:                          true,
+				ImportStateVerify:                    true,
+				ImportStateVerifyIdentifierAttribute: "pulp_href",
+				ImportStateIdFunc: func(state *terraform.State) (string, error) {
+					return state.RootModule().Resources["pulp_remote.git"].Primary.Attributes["pulp_href"], nil
+				},
+			},
+		},
+	})
+}
+
+func TestRemoteGitRefNeedsGitVariant(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + `
+resource "pulp_remote" "file" {
+  content_type = "file"
+  plugin_name  = "file"
+  url          = "https://example.com/PULP_MANIFEST"
+  name         = "tf-acc-remote-git-ref"
+  git_ref      = "main"
+}`,
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile(`Attribute "git_ref" is not supported by this variant`),
 			},
 		},
 	})

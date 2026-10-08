@@ -176,7 +176,7 @@ func TestFeatureSetsMatchAPISchema(t *testing.T) {
 		{
 			collection: "remotes",
 			features:   remoteFeatures,
-			tracked:    []string{featurePolicy},
+			tracked:    []string{featurePolicy, featureGitRef},
 		},
 		{
 			collection: "repositories",
