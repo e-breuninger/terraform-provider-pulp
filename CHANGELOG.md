@@ -1,3 +1,15 @@
+## v1.0.0 (2026-10-29)
+
+### BREAKING CHANGE
+
+- content_type "ostree" is no longer accepted by pulp_distribution, pulp_remote and pulp_repository.
+
+### Feat
+
+- drop the ostree variants
+- support the envvar_header content guard
+- add hidden to the distributions
+
 ## v0.7.0 (2026-10-08)
 
 ### Feat
