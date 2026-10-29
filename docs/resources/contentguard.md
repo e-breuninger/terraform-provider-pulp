@@ -25,7 +25,7 @@ resource "pulp_contentguard" "distribution" {
 
 ### Required
 
-- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `certguard/rhsm`, `certguard/x509`, `core/composite`, `core/content_redirect`, `core/header`, `core/rbac`.
+- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `certguard/rhsm`, `certguard/x509`, `core/composite`, `core/content_redirect`, `core/envvar_header`, `core/header`, `core/rbac`.
 - `name` (String) A unique name for this ContentGuard.
 - `plugin_name` (String) Pulp plugin sub-type. See `content_type` for the supported combinations.
 
@@ -33,8 +33,9 @@ resource "pulp_contentguard" "distribution" {
 
 - `ca_certificate` (String) The CA certificate client certificates are validated against. Only supported by: `certguard/rhsm`, `certguard/x509`.
 - `description` (String) A description for this ContentGuard.
+- `env_var` (String) The content-app environment variable holding the secret the header must carry, Base64-encoded. Pulp only accepts variables listed in `ENVVAR_HEADER_CONTENT_GUARD_ALLOWED_VARS`. Only supported by: `core/envvar_header`.
 - `guards` (List of String) The `pulp_href`s of the ContentGuards this composite ContentGuard combines. Only supported by: `core/composite`.
-- `header_name` (String) The name of the header to check. Only supported by: `core/header`.
+- `header_name` (String) The name of the header to check. Only supported by: `core/envvar_header`, `core/header`.
 - `header_value` (String) The value the header must carry. Only supported by: `core/header`.
 - `jq_filter` (String) A jq filter applied to the decoded header value. Only supported by: `core/header`.
 
