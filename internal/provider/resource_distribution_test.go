@@ -36,6 +36,7 @@ func TestDistributionResource(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("pulp_distribution.npm", "name", "baz"),
 					resource.TestCheckResourceAttr("pulp_distribution.npm", "base_path", "foo"),
+					resource.TestCheckResourceAttr("pulp_distribution.npm", "hidden", "false"),
 					resource.TestCheckResourceAttrSet("pulp_distribution.npm", "pulp_href"),
 				),
 			},
@@ -70,11 +71,13 @@ func TestDistributionResource(t *testing.T) {
 				name         = "foo"
 				base_path    = "foo"
 				remote       = pulp_remote.npm_dist_test.pulp_href
+				hidden       = true
 			}
 			`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("pulp_distribution.npm", "name", "foo"),
 					resource.TestCheckResourceAttr("pulp_distribution.npm", "base_path", "foo"),
+					resource.TestCheckResourceAttr("pulp_distribution.npm", "hidden", "true"),
 					resource.TestCheckResourceAttrSet("pulp_distribution.npm", "pulp_href"),
 				),
 			},
