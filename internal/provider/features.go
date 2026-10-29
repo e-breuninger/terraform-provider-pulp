@@ -118,7 +118,6 @@ var distributionFeatures = featureSet{
 	"hugging_face/hugging-face": {featureRemote: true},
 	"maven/maven":               {featureRemote: true},
 	"npm/npm":                   {featureRemote: true},
-	"ostree/ostree":             {},
 	"python/pypi":               {featureRemote: true, featureAllowUploads: true},
 	"rpm/rpm":                   {},
 }
@@ -139,7 +138,6 @@ var remoteFeatures = featureSet{
 	"hugging_face/hugging-face": {featurePolicy: true},
 	"maven/maven":               {featurePolicy: true},
 	"npm/npm":                   {featurePolicy: true},
-	"ostree/ostree":             {featurePolicy: true},
 	"python/python":             {featurePolicy: true},
 	"rpm/rpm":                   {featurePolicy: true},
 	"rpm/uln":                   {featurePolicy: true},
@@ -157,7 +155,6 @@ var repositoryFeatures = featureSet{
 	"hugging_face/hugging-face": {},
 	"maven/maven":               {},
 	"npm/npm":                   {},
-	"ostree/ostree":             {},
 	"python/python":             {},
 	"rpm/rpm":                   {},
 }
