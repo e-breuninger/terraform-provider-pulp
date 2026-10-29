@@ -28,6 +28,7 @@ const (
 	featureCaCertificate = "ca_certificate"
 	featureContentGuard  = "content_guard"
 	featureDistributions = "distributions"
+	featureEnvVar        = "env_var"
 	featureGitRef        = "git_ref"
 	featureGuards        = "guards"
 	featureHeaderName    = "header_name"
@@ -167,6 +168,7 @@ var contentGuardFeatures = featureSet{
 	"certguard/x509":        {featureCaCertificate: true},
 	"core/composite":        {featureGuards: true},
 	"core/content_redirect": {},
+	"core/envvar_header":    {featureHeaderName: true, featureEnvVar: true},
 	"core/header":           {featureHeaderName: true, featureHeaderValue: true, featureJqFilter: true},
 	"core/rbac":             {},
 }
