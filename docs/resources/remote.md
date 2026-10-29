@@ -57,7 +57,7 @@ resource "pulp_remote" "internal" {
 
 ### Required
 
-- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `ansible/collection`, `ansible/git`, `ansible/role`, `container/container`, `container/pull-through`, `deb/apt`, `file/file`, `file/git`, `gem/gem`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/python`, `rpm/rpm`, `rpm/uln`.
+- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `ansible/collection`, `ansible/git`, `ansible/role`, `container/container`, `container/pull-through`, `deb/apt`, `file/file`, `file/git`, `gem/gem`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `python/python`, `rpm/rpm`, `rpm/uln`.
 - `name` (String) A unique name for this Remote.
 - `plugin_name` (String) Pulp plugin sub-type. See `content_type` for the supported combinations.
 - `url` (String) The URL of an external content source.
@@ -72,7 +72,7 @@ resource "pulp_remote" "internal" {
 - `git_ref` (String) The git ref (branch, tag, or commit hash) to sync from. Unset uses Pulp's default. Only supported by: `ansible/git`, `file/git`.
 - `max_retries` (Number) Maximum number of retry attempts after a download failure. Unset uses Pulp's default of 3.
 - `password` (String, Sensitive) Password for authentication when syncing.
-- `policy` (String) Download policy: `immediate`, `on_demand`, or `streamed`. Only supported by: `ansible/collection`, `ansible/role`, `container/container`, `container/pull-through`, `deb/apt`, `file/file`, `gem/gem`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/python`, `rpm/rpm`, `rpm/uln`.
+- `policy` (String) Download policy: `immediate`, `on_demand`, or `streamed`. Only supported by: `ansible/collection`, `ansible/role`, `container/container`, `container/pull-through`, `deb/apt`, `file/file`, `gem/gem`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `python/python`, `rpm/rpm`, `rpm/uln`.
 - `pulp_labels` (Map of String) Key/value labels.
 - `rate_limit` (Number) Limits requests per second for each concurrent downloader.
 - `sock_connect_timeout` (Number) Timeout in seconds for connecting to a peer for a new connection. Unset uses aiohttp's default.

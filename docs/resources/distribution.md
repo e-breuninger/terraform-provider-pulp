@@ -48,7 +48,7 @@ resource "pulp_distribution" "docker" {
 ### Required
 
 - `base_path` (String) The base_path for this Distribution.
-- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `ansible/ansible`, `container/container`, `container/pull-through`, `core/openpgp`, `deb/apt`, `file/file`, `gem/gem`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `ostree/ostree`, `python/pypi`, `rpm/rpm`.
+- `content_type` (String) Pulp content plugin type. Together with `plugin_name` it selects the API endpoint. Supported combinations: `ansible/ansible`, `container/container`, `container/pull-through`, `core/openpgp`, `deb/apt`, `file/file`, `gem/gem`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `python/pypi`, `rpm/rpm`.
 - `name` (String) A unique name for this Distribution.
 - `plugin_name` (String) Pulp plugin sub-type. See `content_type` for the supported combinations.
 
