@@ -103,9 +103,9 @@ func (f featureSet) variantsWith(feature string) string {
 	return strings.Join(out, ", ")
 }
 
-// distributionFeatures omits content_guard, repository, repository_version
-// and pulp_labels, which every variant accepts. namespace is read-only and
-// only reported by container distributions.
+// distributionFeatures omits content_guard, hidden, repository,
+// repository_version and pulp_labels, which every variant accepts. namespace
+// is read-only and only reported by container distributions.
 var distributionFeatures = featureSet{
 	"ansible/ansible":           {},
 	"container/container":       {featurePrivate: true, featureNamespace: true},

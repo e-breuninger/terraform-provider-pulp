@@ -51,6 +51,7 @@ type PulpDistributionModel struct {
 	AllowUploads      types.Bool   `tfsdk:"allow_uploads"`
 	Remote            types.String `tfsdk:"remote"`
 	ContentGuard      types.String `tfsdk:"content_guard"`
+	Hidden            types.Bool   `tfsdk:"hidden"`
 	Namespace         types.String `tfsdk:"namespace"`
 	Private           types.Bool   `tfsdk:"private"`
 	Distributions     types.List   `tfsdk:"distributions"`
@@ -146,6 +147,11 @@ func NewPulpDistributionResource() resource.Resource {
 				Optional: true, Computed: true, EmptyIsNull: true,
 				Description:      "The `pulp_href` of the Content Guard to use for this Distribution.",
 				StringValidators: []validator.String{validators.PulpHrefValidator()},
+			},
+			field{
+				Name: "hidden", Kind: fieldBool,
+				Optional: true, Computed: true,
+				Description: "If true, this Distribution is left out of the content app's listing. It is still served at its base_path.",
 			},
 			field{
 				Name: "namespace", Kind: fieldString,

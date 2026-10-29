@@ -57,6 +57,7 @@ resource "pulp_distribution" "docker" {
 - `allow_uploads` (Boolean) Whether to allow uploads to this Distribution. Only supported by: `python/pypi`.
 - `content_guard` (String) The `pulp_href` of the Content Guard to use for this Distribution.
 - `distributions` (List of String) The `pulp_href`s of the Distributions served through this pull-through Distribution. Only supported by: `container/pull-through`.
+- `hidden` (Boolean) If true, this Distribution is left out of the content app's listing. It is still served at its base_path.
 - `private` (Boolean) If true, anonymous users may not pull from this Distribution. Only supported by: `container/container`, `container/pull-through`.
 - `pulp_labels` (Map of String) Key/value labels.
 - `remote` (String) The `pulp_href` of the Remote from which content should be pulled on demand. Only supported by: `container/pull-through`, `gem/gem`, `hugging_face/hugging-face`, `maven/maven`, `npm/npm`, `python/pypi`.
